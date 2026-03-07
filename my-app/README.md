@@ -10,7 +10,7 @@ This first version of WiseAnchor is a small web application built using Next.js.
 
 Even though the functionality is simple, the purpose of this project is to establish a clean development workflow using modern web tools such as Next.js, Git, and GitHub. This foundation will allow the project to grow into a more complete routine management application in the future.
 
-[video-link]
+[\[video-link\]](https://youtu.be/X4-heaQXtb4)
 
 ## Development Environment
 
