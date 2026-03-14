@@ -1,0 +1,140 @@
+.page {
+  min-height: 100vh;
+  padding: 28px 20px 48px;
+  background:
+    radial-gradient(circle at top, rgba(255, 221, 190, 0.6), transparent 26%),
+    linear-gradient(180deg, #fff6ef 0%, #eef5ff 100%);
+}
+
+.wrapper {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.hero {
+  margin-bottom: 24px;
+}
+
+.kicker {
+  margin-bottom: 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #9b5b2d;
+}
+
+.hero h1 {
+  font-size: clamp(2.6rem, 6vw, 4.5rem);
+  line-height: 0.96;
+  font-family: "Georgia", "Times New Roman", serif;
+}
+
+.description {
+  max-width: 720px;
+  margin-top: 16px;
+  color: #5a6780;
+  line-height: 1.8;
+}
+
+.feelingsGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.feeling,
+.activeFeeling {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 20px 12px;
+  border-radius: 22px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  background: rgba(255, 255, 255, 0.84);
+  cursor: pointer;
+}
+
+.activeFeeling {
+  border-color: transparent;
+  background: #1f5eff;
+  color: #fff;
+}
+
+.emoji,
+.selectedEmoji {
+  font-size: 2rem;
+}
+
+.feelingLabel {
+  font-weight: 700;
+}
+
+.supportPanel {
+  padding: 28px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 24px 80px rgba(35, 50, 78, 0.1);
+}
+
+.selectedMood {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.selectedMood h2 {
+  margin-bottom: 8px;
+}
+
+.selectedMood p {
+  color: #54637c;
+  line-height: 1.7;
+}
+
+.supportList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.supportCard {
+  padding: 20px;
+  border-radius: 20px;
+  background: #f8fbff;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+}
+
+.supportCard h3 {
+  margin-bottom: 10px;
+}
+
+.supportCard p {
+  color: #54637c;
+  line-height: 1.7;
+}
+
+@media (max-width: 900px) {
+  .feelingsGrid,
+  .supportList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 20px 16px 32px;
+  }
+
+  .feelingsGrid,
+  .supportList {
+    grid-template-columns: 1fr;
+  }
+
+  .supportPanel {
+    padding: 20px;
+  }
+}

@@ -1,0 +1,103 @@
+.page {
+  min-height: 100vh;
+  padding: 28px 20px 48px;
+  background:
+    radial-gradient(circle at bottom right, rgba(255, 212, 164, 0.7), transparent 28%),
+    linear-gradient(180deg, #f2f7ff 0%, #fff7ee 100%);
+}
+
+.card {
+  width: min(560px, 100%);
+  margin: 0 auto;
+  padding: 32px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 22px 72px rgba(35, 50, 78, 0.12);
+}
+
+.kicker {
+  margin-bottom: 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8b5e34;
+}
+
+.card h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1;
+  font-family: "Georgia", "Times New Roman", serif;
+}
+
+.description {
+  margin-top: 14px;
+  color: #54637c;
+  line-height: 1.7;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.label {
+  font-weight: 700;
+}
+
+.input {
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid rgba(23, 32, 51, 0.14);
+  border-radius: 16px;
+  background: #fff;
+  font: inherit;
+}
+
+.error {
+  color: #b42318;
+  font-size: 0.95rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.primaryButton,
+.secondaryLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.primaryButton {
+  border: 0;
+  background: #1f5eff;
+  color: #fff;
+  cursor: pointer;
+}
+
+.secondaryLink {
+  border: 1px solid rgba(23, 32, 51, 0.14);
+  background: #fff;
+  color: #172033;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 20px 16px 32px;
+  }
+
+  .card {
+    padding: 24px;
+  }
+}

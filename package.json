@@ -1,9 +1,11 @@
 {
-  "name": "my-app",
+  "name": "wise-anchor",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@9",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
+    "dev:turbo": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
