@@ -6,7 +6,7 @@ WiseAnchor is a simple routine helper web app created for Week 02 of CSE 310. Th
 
 This project demonstrates the core module requirements: a working web application, multiple pages, JavaScript interaction, DOM updates through React components, browser-based data persistence, and a documented GitHub repository.
 
-[Video Demonstration Placeholder](https://example.com/video-link)
+[Video Demonstration W02](https://youtu.be/2nSmHbbe2jQ)
 
 ## Features
 
