@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "./site-header.module.css";
@@ -17,7 +18,14 @@ export default function SiteHeader() {
   return (
     <header className={styles.header}>
       <Link className={styles.brand} href="/">
-        WiseAnchor
+        <Image
+          alt="Wise Anchor"
+          className={styles.brandLogo}
+          height={92}
+          priority
+          src="/wiseanchor-logo.png"
+          width={180}
+        />
       </Link>
 
       <nav className={styles.nav}>

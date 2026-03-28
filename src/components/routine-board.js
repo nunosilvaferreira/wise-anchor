@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { format, parse } from "date-fns";
 import SiteHeader from "./site-header";
 import styles from "./routine-board.module.css";
 import {
@@ -12,19 +13,18 @@ import {
 } from "../lib/task-storage";
 
 function formatDay(date) {
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
+  // Use date-fns to keep day formatting readable and consistent.
+  return format(date, "EEEE, MMMM d, yyyy");
 }
 
 function formatTime(date) {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
+  // Format times once here so cards and task insights use the same output.
+  return format(date, "h:mm a");
+}
+
+function toDateFromTime(time, now) {
+  // Convert stored HH:mm task strings into Date objects for comparisons.
+  return parse(time, "HH:mm", now);
 }
 
 export default function RoutineBoard() {
@@ -33,6 +33,7 @@ export default function RoutineBoard() {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
+    // Refresh the clock every second so the dashboard stays current.
     const timer = window.setInterval(() => {
       setNow(new Date());
     }, 1000);
@@ -41,17 +42,65 @@ export default function RoutineBoard() {
   }, []);
 
   function handleToggle(taskId) {
+    // Persist the task state change, then update local component state.
     const nextTasks = toggleTaskCompleted(taskId);
     setTasks(nextTasks);
   }
 
   function handleClearCompleted() {
+    // Remove completed items from storage and refresh the rendered list.
     const nextTasks = clearCompletedTasks();
     setTasks(nextTasks);
   }
 
   const completedCount = tasks.filter((task) => task.completed).length;
   const remainingCount = tasks.length - completedCount;
+  const completionRate = tasks.length
+    ? Math.round((completedCount / tasks.length) * 100)
+    : 0;
+  const pendingTasks = tasks.filter((task) => !task.completed);
+
+  const sortedPendingTasks = pendingTasks
+    .map((task) => ({
+      ...task,
+      scheduleDate: toDateFromTime(task.time, now),
+    }))
+    .sort((left, right) => left.scheduleDate - right.scheduleDate);
+
+  const nextTask =
+    sortedPendingTasks.find((task) => task.scheduleDate >= now) ??
+    sortedPendingTasks[0] ??
+    null;
+
+  const sectionStats = ROUTINE_SECTIONS.map((section) => {
+    const sectionTasks = tasks.filter((task) => task.category === section.id);
+    const completedInSection = sectionTasks.reduce(
+      (count, task) => count + (task.completed ? 1 : 0),
+      0
+    );
+    const totalInSection = sectionTasks.length;
+    const percentage = totalInSection
+      ? Math.round((completedInSection / totalInSection) * 100)
+      : 0;
+
+    return {
+      id: section.id,
+      label: section.label,
+      totalInSection,
+      completedInSection,
+      percentage,
+      remainingInSection: totalInSection - completedInSection,
+    };
+  }).filter((section) => section.totalInSection > 0);
+
+  const highestLoadSection = [...sectionStats].sort((left, right) => {
+    if (right.remainingInSection !== left.remainingInSection) {
+      return right.remainingInSection - left.remainingInSection;
+    }
+
+    return left.label.localeCompare(right.label);
+  })[0];
+
   const greetingName = personalDetails.fullName || "friend";
 
   return (
@@ -80,7 +129,7 @@ export default function RoutineBoard() {
         <div className={styles.panelHeader}>
           <div>
             <h2>Today&apos;s routine</h2>
-            <p>{`${completedCount} completed, ${remainingCount} remaining`}</p>
+            <p>{`${completedCount} completed, ${remainingCount} remaining (${completionRate}% done)`}</p>
           </div>
 
           <button
@@ -91,6 +140,48 @@ export default function RoutineBoard() {
             Clear Completed
           </button>
         </div>
+
+        <section className={styles.insightsGrid}>
+          <article className={styles.insightCard}>
+            <h3>Next Task</h3>
+            {nextTask ? (
+              <p>
+                {nextTask.name} at {formatTime(nextTask.scheduleDate)}
+              </p>
+            ) : (
+              <p>All tasks completed for now.</p>
+            )}
+          </article>
+
+          <article className={styles.insightCard}>
+            <h3>Most Remaining</h3>
+            <p>
+              {highestLoadSection
+                ? `${highestLoadSection.label} (${highestLoadSection.remainingInSection} pending)`
+                : "No pending tasks in any section."}
+            </p>
+          </article>
+        </section>
+
+        <section className={styles.progressSection}>
+          <h3>Progress by Section</h3>
+          <div className={styles.progressGrid}>
+            {sectionStats.map((section) => (
+              <article className={styles.progressCard} key={section.id}>
+                <p className={styles.progressLabel}>{section.label}</p>
+                <p className={styles.progressMeta}>
+                  {section.completedInSection}/{section.totalInSection} completed
+                </p>
+                <div className={styles.progressTrack}>
+                  <span
+                    className={styles.progressFill}
+                    style={{ width: `${section.percentage}%` }}
+                  />
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <div className={styles.taskGroups}>
           {ROUTINE_SECTIONS.map((section) => {

@@ -2,60 +2,69 @@
 
 ## Overview
 
-WiseAnchor is a simple routine helper web app created for Week 02 of CSE 310. The goal of the project is to help users manage daily tasks in a clear and predictable way. Users can view a routine list, add new tasks on a second page, mark tasks as completed, and keep their progress saved with localStorage.
+WiseAnchor is a routine support web app for CSE 310.  
+For Module #2 (`Language - JavaScript`), this project extends the Week 02 app with deeper JavaScript logic, recursion, library integration, and stronger validation.
 
-This project demonstrates the core module requirements: a working web application, multiple pages, JavaScript interaction, DOM updates through React components, browser-based data persistence, and a documented GitHub repository.
+## Video Links
 
-[Video Demonstration W02](https://youtu.be/2nSmHbbe2jQ)
+- Week 02 Demo: https://youtu.be/2nSmHbbe2jQ
+- Module #2 Demo + Code Walkthrough: `ADD_VIDEO_LINK_HERE`
+
+## Module #2 Requirements Coverage
+
+1. Display output to the screen
+- Dynamic routine board with live day/time and completion metrics
+- Daily insights cards (next task and highest remaining section)
+- Progress-by-section bars updated from task state
+
+2. Native Array ES6 functions
+- `map`, `filter`, `sort`, and `reduce` are used to:
+- Compute completion rates
+- Rank sections by pending workload
+- Build section-level progress summaries
+
+3. Recursion
+- `flattenGuidedSteps` in `src/components/calm-steps.js` recursively expands nested calming paths into a guided sequence with depth-based indentation.
+
+4. JavaScript library by someone else
+- `date-fns` is integrated for date/time formatting and parsing in `src/components/routine-board.js`.
+
+Stretch challenge (exceptions)
+- `TaskValidationError` in `src/lib/task-storage.js` is thrown for invalid task input and handled in UI forms.
 
 ## Features
 
-- Main routine page that displays the daily task list
-- Separate page for adding a new task
-- Task completion toggle
-- localStorage persistence so tasks remain after refresh
-- Responsive layout for desktop and mobile use
+- Multi-page Next.js app (`Today`, `Add Task`, `Settings`, `CalmSteps`)
+- Task persistence with `localStorage`
+- Personal details profile
+- Editable daily routine sections
+- Recursive guided calming sequences
 
-## Development Environment
+## Tech Stack
 
-This project was built with:
-
-- Visual Studio Code
-- Git and GitHub
-- Node.js
-- pnpm
 - Next.js
 - React
 - JavaScript
 - CSS Modules
+- date-fns
+- pnpm
 
 ## How to Run
 
-1. Clone or download the repository.
-2. Open a terminal in the project folder.
-3. Install dependencies with `pnpm install`.
-4. Start the app with `pnpm dev`.
-5. Open the local development URL shown in the terminal.
+1. Install dependencies:
+```bash
+pnpm install
+```
 
-## Week 02 Requirements Covered
+2. Start development server:
+```bash
+pnpm dev
+```
 
-- Working web application
-- Multiple pages
-- JavaScript interaction
-- DOM manipulation through rendered task updates
-- Data persistence using localStorage
-- Clear repository structure
-- README documentation
+3. Open the local URL shown in the terminal.
 
-## Future Improvements
-
-- Add task categories and priorities
-- Add edit and delete actions for each task
-- Add optional reminders or transition timers
-- Add cloud storage and user accounts
-
-## Useful Websites
+## Useful References
 
 - https://nextjs.org/docs
 - https://developer.mozilla.org/en-US/docs/Web/JavaScript
-- https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
+- https://date-fns.org/

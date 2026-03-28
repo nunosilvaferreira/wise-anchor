@@ -85,6 +85,12 @@
   font-weight: 700;
 }
 
+.errorStatus {
+  margin-top: 18px;
+  color: #b32318;
+  font-weight: 700;
+}
+
 .form,
 .tasksPanel {
   display: grid;
@@ -108,6 +114,7 @@
 }
 
 .field input,
+.field select,
 .field textarea {
   width: 100%;
   min-height: 50px;

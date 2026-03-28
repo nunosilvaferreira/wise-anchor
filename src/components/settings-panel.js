@@ -10,6 +10,7 @@ import {
   ROUTINE_SECTIONS,
   saveDailyTasks,
   savePersonalDetails,
+  TaskValidationError,
 } from "../lib/task-storage";
 
 const TABS = [
@@ -22,14 +23,18 @@ export default function SettingsPanel() {
   const [personalDetails, setPersonalDetails] = useState(() => loadPersonalDetails());
   const [dailyTasks, setDailyTasks] = useState(() => loadTasks());
   const [status, setStatus] = useState("");
+  const [statusType, setStatusType] = useState("success");
 
   function handlePersonalSave(event) {
+    // Save the support profile so CalmSteps and other pages can reuse it.
     event.preventDefault();
     savePersonalDetails(personalDetails);
     setStatus("Personal details saved.");
+    setStatusType("success");
   }
 
   function handleTaskChange(taskId, field, value) {
+    // Apply inline task edits locally before the user commits the changes.
     setDailyTasks((currentTasks) =>
       currentTasks.map((task) =>
         task.id === taskId
@@ -44,6 +49,7 @@ export default function SettingsPanel() {
   }
 
   function handleAddTask(category) {
+    // Create a sensible starter task inside the selected routine section.
     const section = ROUTINE_SECTIONS.find((item) => item.id === category);
     const nextTaskNumber =
       dailyTasks.filter((task) => task.category === category).length + 1;
@@ -62,6 +68,7 @@ export default function SettingsPanel() {
   }
 
   function handleDeleteTask(taskId) {
+    // Remove a task from the editable settings view before saving.
     setDailyTasks((currentTasks) =>
       currentTasks.filter((task) => task.id !== taskId)
     );
@@ -69,14 +76,29 @@ export default function SettingsPanel() {
   }
 
   function handleTaskSave() {
-    saveDailyTasks(dailyTasks);
-    setStatus("Daily tasks saved.");
+    // Persist edited tasks and surface validation errors in the sidebar.
+    try {
+      saveDailyTasks(dailyTasks);
+      setStatus("Daily tasks saved.");
+      setStatusType("success");
+    } catch (error) {
+      if (error instanceof TaskValidationError) {
+        setStatus(error.message);
+        setStatusType("error");
+        return;
+      }
+
+      setStatus("Could not save tasks right now.");
+      setStatusType("error");
+    }
   }
 
   function handleRestoreDefaults() {
+    // Replace custom tasks with the predefined routine template.
     const restoredTasks = resetDailyTasks();
     setDailyTasks(restoredTasks);
     setStatus("Default routine restored.");
+    setStatusType("success");
   }
 
   return (
@@ -108,7 +130,11 @@ export default function SettingsPanel() {
             ))}
           </div>
 
-          {status ? <p className={styles.status}>{status}</p> : null}
+          {status ? (
+            <p className={statusType === "error" ? styles.errorStatus : styles.status}>
+              {status}
+            </p>
+          ) : null}
         </div>
 
         <section className={styles.content}>
@@ -169,6 +195,22 @@ export default function SettingsPanel() {
                     type="text"
                     value={personalDetails.emergencyContact}
                   />
+                </label>
+
+                <label className={styles.field}>
+                  <span>Gender</span>
+                  <select
+                    onChange={(event) =>
+                      setPersonalDetails((current) => ({
+                        ...current,
+                        gender: event.target.value,
+                      }))
+                    }
+                    value={personalDetails.gender ?? "male"}
+                  >
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
                 </label>
 
                 <label className={styles.field}>

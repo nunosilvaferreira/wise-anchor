@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import SiteHeader from "./site-header";
 import styles from "./add-task-form.module.css";
-import { addTask, ROUTINE_SECTIONS } from "../lib/task-storage";
+import { addTask, ROUTINE_SECTIONS, TaskValidationError } from "../lib/task-storage";
 
 export default function AddTaskForm() {
   const router = useRouter();
@@ -14,22 +14,26 @@ export default function AddTaskForm() {
   const [error, setError] = useState("");
 
   function handleSubmit(event) {
+    // Let storage validation decide whether this task is safe to save.
     event.preventDefault();
+    setError("");
 
-    const trimmedTaskName = taskName.trim();
+    try {
+      addTask({
+        name: taskName,
+        category: taskCategory,
+        time: taskTime,
+      });
 
-    if (!trimmedTaskName) {
-      setError("Please enter a task before saving.");
-      return;
+      router.push("/");
+    } catch (error) {
+      if (error instanceof TaskValidationError) {
+        setError(error.message);
+        return;
+      }
+
+      setError("Something went wrong while saving the task.");
     }
-
-    addTask({
-      name: trimmedTaskName,
-      category: taskCategory,
-      time: taskTime,
-    });
-
-    router.push("/");
   }
 
   return (

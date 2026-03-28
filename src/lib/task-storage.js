@@ -1,5 +1,6 @@
 const APP_STORAGE_KEY = "wise-anchor-app-data";
 const LEGACY_TASKS_KEY = "wise-anchor-tasks";
+const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export const ROUTINE_SECTIONS = [
   {
@@ -68,6 +69,7 @@ export const ROUTINE_SECTIONS = [
 export const DEFAULT_PERSONAL_DETAILS = {
   fullName: "",
   email: "",
+  gender: "male",
   contact: "",
   emergencyContact: "",
   dateOfBirth: "",
@@ -91,6 +93,7 @@ function getSectionIndex(category) {
 }
 
 function sortTasks(tasks) {
+  // Keep tasks ordered by routine section, then time, then name.
   return [...tasks].sort((left, right) => {
     const sectionDifference = getSectionIndex(left.category) - getSectionIndex(right.category);
 
@@ -123,7 +126,43 @@ function createDefaultAppData() {
   };
 }
 
+function isValidCategory(category) {
+  return ROUTINE_SECTIONS.some((section) => section.id === category);
+}
+
+function normalizeTime(value, fallback) {
+  return typeof value === "string" && TIME_PATTERN.test(value) ? value : fallback;
+}
+
+function validateTaskInput({ name, time, category }) {
+  // Throw explicit validation errors so UI forms can show friendly feedback.
+  const trimmedName = typeof name === "string" ? name.trim() : "";
+
+  if (!trimmedName) {
+    throw new TaskValidationError("Task name is required.", "name");
+  }
+
+  if (trimmedName.length < 3) {
+    throw new TaskValidationError("Task name must be at least 3 characters.", "name");
+  }
+
+  if (!TIME_PATTERN.test(time)) {
+    throw new TaskValidationError("Please provide a valid time in HH:MM format.", "time");
+  }
+
+  if (!isValidCategory(category)) {
+    throw new TaskValidationError("Please choose a valid routine section.", "category");
+  }
+
+  return {
+    name: trimmedName,
+    time,
+    category,
+  };
+}
+
 function normalizeTask(task, index) {
+  // Repair incomplete stored tasks while preserving existing user data.
   const fallback = DEFAULT_DAILY_TASKS[index] ?? {
     id: `task-${index + 1}`,
     category: ROUTINE_SECTIONS[0].id,
@@ -135,16 +174,17 @@ function normalizeTask(task, index) {
   return {
     id: task?.id ?? fallback.id,
     category:
-      typeof task?.category === "string" && task.category
+      typeof task?.category === "string" && isValidCategory(task.category)
         ? task.category
         : fallback.category,
-    time: typeof task?.time === "string" && task.time ? task.time : fallback.time,
+    time: normalizeTime(task?.time, fallback.time),
     name: typeof task?.name === "string" && task.name ? task.name : fallback.name,
     completed: Boolean(task?.completed),
   };
 }
 
 function normalizeAppData(data) {
+  // Merge saved data with defaults to support older storage shapes safely.
   const defaultData = createDefaultAppData();
   const personalDetails = {
     ...defaultData.personalDetails,
@@ -162,6 +202,7 @@ function normalizeAppData(data) {
 }
 
 function saveAppData(appData) {
+  // Save only normalized data so every page reads the same structure.
   const normalizedData = normalizeAppData(appData);
 
   if (canUseStorage()) {
@@ -172,6 +213,7 @@ function saveAppData(appData) {
 }
 
 function migrateLegacyTasks() {
+  // Upgrade the older task-only storage format into the current app structure.
   const legacyTasks = window.localStorage.getItem(LEGACY_TASKS_KEY);
 
   if (!legacyTasks) {
@@ -203,6 +245,7 @@ function migrateLegacyTasks() {
 }
 
 export function loadAppData() {
+  // Load persisted data and self-heal broken or outdated storage entries.
   if (!canUseStorage()) {
     return createDefaultAppData();
   }
@@ -231,14 +274,20 @@ export function loadPersonalDetails() {
 }
 
 export function addTask({ name, time, category }) {
+  // Validate before creating a new task so invalid entries never reach storage.
   const appData = loadAppData();
+  const validTask = validateTaskInput({
+    name,
+    time: time || "18:00",
+    category: category || ROUTINE_SECTIONS[4].id,
+  });
   const nextTasks = [
     ...appData.dailyTasks,
     {
       id: `${Date.now()}`,
-      category: category || ROUTINE_SECTIONS[4].id,
-      time: time || "18:00",
-      name,
+      category: validTask.category,
+      time: validTask.time,
+      name: validTask.name,
       completed: false,
     },
   ];
@@ -250,11 +299,24 @@ export function addTask({ name, time, category }) {
 }
 
 export function saveDailyTasks(tasks) {
+  // Revalidate edited tasks before committing them to localStorage.
+  const sanitizedTasks = tasks.map((task) => {
+    const validTask = validateTaskInput({
+      name: task.name,
+      time: task.time,
+      category: task.category,
+    });
+
+    return {
+      ...task,
+      ...validTask,
+    };
+  });
   const appData = loadAppData();
 
   return saveAppData({
     ...appData,
-    dailyTasks: tasks,
+    dailyTasks: sanitizedTasks,
   }).dailyTasks;
 }
 
@@ -268,6 +330,7 @@ export function resetDailyTasks() {
 }
 
 export function toggleTaskCompleted(taskId) {
+  // Flip a single task without mutating the rest of the collection.
   const tasks = loadTasks();
   const nextTasks = tasks.map((task) =>
     task.id === taskId
@@ -282,12 +345,14 @@ export function toggleTaskCompleted(taskId) {
 }
 
 export function clearCompletedTasks() {
+  // Remove completed items to keep the visible routine focused on pending work.
   const tasks = loadTasks();
   const nextTasks = tasks.filter((task) => !task.completed);
   return saveDailyTasks(nextTasks);
 }
 
 export function savePersonalDetails(personalDetails) {
+  // Merge profile updates instead of replacing the whole profile object.
   const appData = loadAppData();
 
   return saveAppData({
@@ -297,4 +362,12 @@ export function savePersonalDetails(personalDetails) {
       ...personalDetails,
     },
   }).personalDetails;
+}
+
+export class TaskValidationError extends Error {
+  constructor(message, field) {
+    super(message);
+    this.name = "TaskValidationError";
+    this.field = field;
+  }
 }
