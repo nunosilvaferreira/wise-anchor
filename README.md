@@ -7,8 +7,8 @@ For Module #2 (`Language - JavaScript`), this project extends the Week 02 app wi
 
 ## Video Links
 
-- Week 02 Demo: https://youtu.be/2nSmHbbe2jQ
-- Module #2 Demo + Code Walkthrough: `ADD_VIDEO_LINK_HERE`
+- Module #1 Demo: https://youtu.be/2nSmHbbe2jQ
+- Module #2 Demo + Code Walkthrough: `https://youtu.be/aAOKzK7D_5Y`
 
 ## Module #2 Requirements Coverage
 
