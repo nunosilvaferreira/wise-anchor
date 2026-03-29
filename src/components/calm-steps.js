@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import SiteHeader from "./site-header";
 import styles from "./calm-steps.module.css";
@@ -191,6 +191,16 @@ function getAgeFromDob(dateOfBirth) {
 export default function CalmSteps() {
   const [selectedFeeling, setSelectedFeeling] = useState(FEELINGS[0]);
   const [personalDetails] = useState(() => loadPersonalDetails());
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setIsReady(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   const gender = getGender(personalDetails.gender);
   const age = getAgeFromDob(personalDetails.dateOfBirth);
   const effectiveAge = age ?? 18;
@@ -201,6 +211,14 @@ export default function CalmSteps() {
     () => flattenGuidedSteps(GUIDED_PATHS[selectedFeeling.id] ?? []),
     [selectedFeeling]
   );
+
+  if (!isReady) {
+    return (
+      <main className={styles.page}>
+        <SiteHeader />
+      </main>
+    );
+  }
 
   return (
     <main className={styles.page}>

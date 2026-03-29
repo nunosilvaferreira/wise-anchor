@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SiteHeader from "./site-header";
 import styles from "./settings-panel.module.css";
 import {
@@ -24,6 +24,15 @@ export default function SettingsPanel() {
   const [dailyTasks, setDailyTasks] = useState(() => loadTasks());
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState("success");
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setIsReady(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   function handlePersonalSave(event) {
     // Save the support profile so CalmSteps and other pages can reuse it.
@@ -99,6 +108,14 @@ export default function SettingsPanel() {
     setDailyTasks(restoredTasks);
     setStatus("Default routine restored.");
     setStatusType("success");
+  }
+
+  if (!isReady) {
+    return (
+      <main className={styles.page}>
+        <SiteHeader />
+      </main>
+    );
   }
 
   return (

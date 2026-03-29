@@ -31,14 +31,22 @@ export default function RoutineBoard() {
   const [tasks, setTasks] = useState(() => loadTasks());
   const [personalDetails] = useState(() => loadPersonalDetails());
   const [now, setNow] = useState(() => new Date());
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setIsReady(true);
+    });
+
     // Refresh the clock every second so the dashboard stays current.
     const timer = window.setInterval(() => {
       setNow(new Date());
     }, 1000);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(timer);
+    };
   }, []);
 
   function handleToggle(taskId) {
@@ -102,6 +110,14 @@ export default function RoutineBoard() {
   })[0];
 
   const greetingName = personalDetails.fullName || "friend";
+
+  if (!isReady) {
+    return (
+      <main className={styles.page}>
+        <SiteHeader />
+      </main>
+    );
+  }
 
   return (
     <main className={styles.page}>
