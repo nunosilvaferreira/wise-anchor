@@ -3,15 +3,9 @@
 import { useEffect, useState } from "react";
 import SiteHeader from "./site-header";
 import styles from "./settings-panel.module.css";
-import {
-  loadPersonalDetails,
-  loadTasks,
-  resetDailyTasks,
-  ROUTINE_SECTIONS,
-  saveDailyTasks,
-  savePersonalDetails,
-  TaskValidationError,
-} from "../lib/task-storage";
+import { ROUTINE_SECTIONS } from "../lib/task-storage";
+import { SUPPORT_LEVEL_OPTIONS } from "../lib/profile-utils";
+import { useAppContext } from "./app-provider";
 
 const TABS = [
   { id: "personal", label: "Personal Details" },
@@ -19,9 +13,19 @@ const TABS = [
 ];
 
 export default function SettingsPanel() {
+  const {
+    TaskValidationError,
+    activeProfile,
+    isCloudMode,
+    personalDetails: storedPersonalDetails,
+    resetDailyTasks,
+    saveDailyTasks,
+    savePersonalDetails,
+    tasks: storedTasks,
+  } = useAppContext();
   const [activeTab, setActiveTab] = useState("personal");
-  const [personalDetails, setPersonalDetails] = useState(() => loadPersonalDetails());
-  const [dailyTasks, setDailyTasks] = useState(() => loadTasks());
+  const [personalDetails, setPersonalDetails] = useState(storedPersonalDetails);
+  const [dailyTasks, setDailyTasks] = useState(storedTasks);
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState("success");
   const [isReady, setIsReady] = useState(false);
@@ -34,12 +38,28 @@ export default function SettingsPanel() {
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
-  function handlePersonalSave(event) {
+  useEffect(() => {
+    // Refresh draft form values when the active synced profile changes.
+    const frame = window.requestAnimationFrame(() => {
+      setPersonalDetails(storedPersonalDetails);
+      setDailyTasks(storedTasks);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [storedPersonalDetails, storedTasks, activeProfile?.id]);
+
+  async function handlePersonalSave(event) {
     // Save the support profile so CalmSteps and other pages can reuse it.
     event.preventDefault();
-    savePersonalDetails(personalDetails);
-    setStatus("Personal details saved.");
-    setStatusType("success");
+
+    try {
+      await savePersonalDetails(personalDetails);
+      setStatus("Personal details saved.");
+      setStatusType("success");
+    } catch (error) {
+      setStatus(error.message || "Could not save personal details right now.");
+      setStatusType("error");
+    }
   }
 
   function handleTaskChange(taskId, field, value) {
@@ -84,10 +104,10 @@ export default function SettingsPanel() {
     setStatus("");
   }
 
-  function handleTaskSave() {
+  async function handleTaskSave() {
     // Persist edited tasks and surface validation errors in the sidebar.
     try {
-      saveDailyTasks(dailyTasks);
+      await saveDailyTasks(dailyTasks);
       setStatus("Daily tasks saved.");
       setStatusType("success");
     } catch (error) {
@@ -102,12 +122,17 @@ export default function SettingsPanel() {
     }
   }
 
-  function handleRestoreDefaults() {
+  async function handleRestoreDefaults() {
     // Replace custom tasks with the predefined routine template.
-    const restoredTasks = resetDailyTasks();
-    setDailyTasks(restoredTasks);
-    setStatus("Default routine restored.");
-    setStatusType("success");
+    try {
+      const restoredTasks = await resetDailyTasks();
+      setDailyTasks(restoredTasks);
+      setStatus("Default routine restored.");
+      setStatusType("success");
+    } catch (error) {
+      setStatus(error.message || "Could not restore the default routine.");
+      setStatusType("error");
+    }
   }
 
   if (!isReady) {
@@ -129,6 +154,11 @@ export default function SettingsPanel() {
           <p className={styles.description}>
             Update personal details and adjust the task schedule that appears in
             Today&apos;s Routine.
+          </p>
+          <p className={styles.modeNote}>
+            {isCloudMode
+              ? "Changes sync through Firebase and stay cached on this device for offline use."
+              : "Changes are currently saved only on this device."}
           </p>
 
           <div className={styles.tabs}>
@@ -227,6 +257,25 @@ export default function SettingsPanel() {
                   >
                     <option value="male">Male</option>
                     <option value="female">Female</option>
+                  </select>
+                </label>
+
+                <label className={styles.field}>
+                  <span>Support level</span>
+                  <select
+                    onChange={(event) =>
+                      setPersonalDetails((current) => ({
+                        ...current,
+                        supportLevel: event.target.value,
+                      }))
+                    }
+                    value={personalDetails.supportLevel ?? "moderate"}
+                  >
+                    {SUPPORT_LEVEL_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
 

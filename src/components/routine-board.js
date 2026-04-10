@@ -4,13 +4,8 @@ import { useEffect, useState } from "react";
 import { format, parse } from "date-fns";
 import SiteHeader from "./site-header";
 import styles from "./routine-board.module.css";
-import {
-  clearCompletedTasks,
-  loadPersonalDetails,
-  loadTasks,
-  ROUTINE_SECTIONS,
-  toggleTaskCompleted,
-} from "../lib/task-storage";
+import { ROUTINE_SECTIONS } from "../lib/task-storage";
+import { useAppContext } from "./app-provider";
 
 function formatDay(date) {
   // Use date-fns to keep day formatting readable and consistent.
@@ -28,10 +23,20 @@ function toDateFromTime(time, now) {
 }
 
 export default function RoutineBoard() {
-  const [tasks, setTasks] = useState(() => loadTasks());
-  const [personalDetails] = useState(() => loadPersonalDetails());
+  const {
+    activeProfile,
+    clearCompletedTasks,
+    currentUser,
+    isCloudMode,
+    isFirebaseConfigured,
+    personalDetails,
+    role,
+    tasks,
+    toggleTaskCompleted,
+  } = useAppContext();
   const [now, setNow] = useState(() => new Date());
   const [isReady, setIsReady] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -49,16 +54,24 @@ export default function RoutineBoard() {
     };
   }, []);
 
-  function handleToggle(taskId) {
+  async function handleToggle(taskId) {
     // Persist the task state change, then update local component state.
-    const nextTasks = toggleTaskCompleted(taskId);
-    setTasks(nextTasks);
+    try {
+      setActionError("");
+      await toggleTaskCompleted(taskId);
+    } catch (error) {
+      setActionError(error.message || "Could not update that task right now.");
+    }
   }
 
-  function handleClearCompleted() {
+  async function handleClearCompleted() {
     // Remove completed items from storage and refresh the rendered list.
-    const nextTasks = clearCompletedTasks();
-    setTasks(nextTasks);
+    try {
+      setActionError("");
+      await clearCompletedTasks();
+    } catch (error) {
+      setActionError(error.message || "Could not clear completed tasks right now.");
+    }
   }
 
   const completedCount = tasks.filter((task) => task.completed).length;
@@ -110,6 +123,10 @@ export default function RoutineBoard() {
   })[0];
 
   const greetingName = personalDetails.fullName || "friend";
+  const profileLabel =
+    activeProfile?.profileType === "dependent"
+      ? `${activeProfile.fullName}'s plan`
+      : "Your plan";
 
   if (!isReady) {
     return (
@@ -131,6 +148,21 @@ export default function RoutineBoard() {
             Stay grounded with a clear routine, visible timing, and calm pacing
             through the day.
           </p>
+          <div className={styles.heroMeta}>
+            <span className={isCloudMode ? styles.cloudPill : styles.localPill}>
+              {isCloudMode ? "Synced with Firebase" : "Saved on this device"}
+            </span>
+            <span className={styles.profilePill}>{profileLabel}</span>
+            {role === "caregiver" ? (
+              <span className={styles.profilePill}>Caregiver view</span>
+            ) : null}
+          </div>
+          {isFirebaseConfigured && !currentUser ? (
+            <p className={styles.authHint}>
+              Sign in to sync routines across multiple devices with Firebase.
+            </p>
+          ) : null}
+          {actionError ? <p className={styles.error}>{actionError}</p> : null}
         </div>
 
         <div className={styles.clockCard}>

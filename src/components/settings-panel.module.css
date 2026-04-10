@@ -51,6 +51,15 @@
   line-height: 1.7;
 }
 
+.modeNote {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(31, 94, 255, 0.08);
+  color: #365072;
+  line-height: 1.6;
+}
+
 .tabs {
   display: grid;
   gap: 10px;

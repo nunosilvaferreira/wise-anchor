@@ -4,22 +4,24 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import SiteHeader from "./site-header";
 import styles from "./add-task-form.module.css";
-import { addTask, ROUTINE_SECTIONS, TaskValidationError } from "../lib/task-storage";
+import { ROUTINE_SECTIONS } from "../lib/task-storage";
+import { useAppContext } from "./app-provider";
 
 export default function AddTaskForm() {
   const router = useRouter();
+  const { TaskValidationError, addTask, isCloudMode } = useAppContext();
   const [taskName, setTaskName] = useState("");
   const [taskTime, setTaskTime] = useState("18:00");
   const [taskCategory, setTaskCategory] = useState(ROUTINE_SECTIONS[4].id);
   const [error, setError] = useState("");
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     // Let storage validation decide whether this task is safe to save.
     event.preventDefault();
     setError("");
 
     try {
-      addTask({
+      await addTask({
         name: taskName,
         category: taskCategory,
         time: taskTime,
@@ -46,6 +48,11 @@ export default function AddTaskForm() {
         <p className={styles.description}>
           Create an extra routine step and choose the time it should appear in
           Today&apos;s Routine.
+        </p>
+        <p className={styles.modeNote}>
+          {isCloudMode
+            ? "This task will sync through Firebase and remain cached on the device."
+            : "This task will be saved only on the current device until you sign in."}
         </p>
 
         <form className={styles.form} onSubmit={handleSubmit}>

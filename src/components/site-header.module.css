@@ -2,9 +2,15 @@
   width: min(1120px, 100%);
   margin: 0 auto 28px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
+}
+
+.brandRow,
+.actions {
+  display: grid;
+  gap: 12px;
 }
 
 .brand {
@@ -23,8 +29,18 @@
   gap: 10px;
 }
 
+.authActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .link,
-.activeLink {
+.activeLink,
+.authButton,
+.authPrimaryButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -44,10 +60,68 @@
   background: #1f5eff;
 }
 
+.authButton,
+.authPrimaryButton {
+  border: 1px solid rgba(23, 32, 51, 0.14);
+  background: rgba(255, 255, 255, 0.7);
+  color: #172033;
+  cursor: pointer;
+  font: inherit;
+}
+
+.authPrimaryButton {
+  border-color: transparent;
+  background: #1f5eff;
+  color: #fff;
+}
+
+.sessionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cloudBadge,
+.localBadge,
+.accountLabel,
+.helperText {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.cloudBadge {
+  background: rgba(24, 125, 81, 0.14);
+  color: #146240;
+}
+
+.localBadge {
+  background: rgba(139, 94, 52, 0.14);
+  color: #805530;
+}
+
+.accountLabel {
+  background: rgba(255, 255, 255, 0.8);
+  color: #34425a;
+}
+
+.helperText {
+  background: rgba(255, 255, 255, 0.7);
+  color: #5f6d86;
+}
+
 @media (max-width: 720px) {
   .header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .actions,
+  .authActions {
+    width: 100%;
   }
 
   .brandLogo {

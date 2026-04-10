@@ -70,6 +70,7 @@ export const DEFAULT_PERSONAL_DETAILS = {
   fullName: "",
   email: "",
   gender: "male",
+  supportLevel: "moderate",
   contact: "",
   emergencyContact: "",
   dateOfBirth: "",
@@ -92,7 +93,7 @@ function getSectionIndex(category) {
   return index === -1 ? 0 : index;
 }
 
-function sortTasks(tasks) {
+export function sortTasks(tasks) {
   // Keep tasks ordered by routine section, then time, then name.
   return [...tasks].sort((left, right) => {
     const sectionDifference = getSectionIndex(left.category) - getSectionIndex(right.category);
@@ -115,11 +116,11 @@ function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
-function cloneDefaultTasks() {
+export function cloneDefaultTasks() {
   return DEFAULT_DAILY_TASKS.map((task) => ({ ...task }));
 }
 
-function createDefaultAppData() {
+export function createDefaultAppData() {
   return {
     personalDetails: { ...DEFAULT_PERSONAL_DETAILS },
     dailyTasks: cloneDefaultTasks(),
@@ -134,7 +135,7 @@ function normalizeTime(value, fallback) {
   return typeof value === "string" && TIME_PATTERN.test(value) ? value : fallback;
 }
 
-function validateTaskInput({ name, time, category }) {
+export function validateTaskInput({ name, time, category }) {
   // Throw explicit validation errors so UI forms can show friendly feedback.
   const trimmedName = typeof name === "string" ? name.trim() : "";
 
@@ -183,7 +184,7 @@ function normalizeTask(task, index) {
   };
 }
 
-function normalizeAppData(data) {
+export function normalizeAppData(data) {
   // Merge saved data with defaults to support older storage shapes safely.
   const defaultData = createDefaultAppData();
   const personalDetails = {

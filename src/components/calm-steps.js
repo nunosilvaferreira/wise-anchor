@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import SiteHeader from "./site-header";
 import styles from "./calm-steps.module.css";
-import { loadPersonalDetails } from "../lib/task-storage";
+import { getAgeFromDateOfBirth } from "../lib/profile-utils";
+import { useAppContext } from "./app-provider";
 
 const FEELINGS = [
   {
@@ -162,35 +163,9 @@ function getGender(genderValue) {
   return genderValue === "female" ? "female" : "male";
 }
 
-function getAgeFromDob(dateOfBirth) {
-  // Derive the current age from the stored date of birth for avatar selection.
-  if (!dateOfBirth) {
-    return null;
-  }
-
-  const birthDate = new Date(dateOfBirth);
-
-  if (Number.isNaN(birthDate.getTime())) {
-    return null;
-  }
-
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDifference = today.getMonth() - birthDate.getMonth();
-
-  if (
-    monthDifference < 0 ||
-    (monthDifference === 0 && today.getDate() < birthDate.getDate())
-  ) {
-    age -= 1;
-  }
-
-  return age >= 0 ? age : null;
-}
-
 export default function CalmSteps() {
   const [selectedFeeling, setSelectedFeeling] = useState(FEELINGS[0]);
-  const [personalDetails] = useState(() => loadPersonalDetails());
+  const { personalDetails } = useAppContext();
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -202,7 +177,7 @@ export default function CalmSteps() {
   }, []);
 
   const gender = getGender(personalDetails.gender);
-  const age = getAgeFromDob(personalDetails.dateOfBirth);
+  const age = getAgeFromDateOfBirth(personalDetails.dateOfBirth);
   const effectiveAge = age ?? 18;
   const hasProfileData = age !== null && Boolean(personalDetails.gender);
   const ageGroup = getAgeGroup(effectiveAge);

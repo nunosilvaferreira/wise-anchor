@@ -2,17 +2,17 @@
   min-height: 100vh;
   padding: 28px 20px 48px;
   background:
-    radial-gradient(circle at bottom right, rgba(255, 212, 164, 0.7), transparent 28%),
-    linear-gradient(180deg, #f2f7ff 0%, #fff7ee 100%);
+    radial-gradient(circle at top left, rgba(209, 230, 255, 0.66), transparent 28%),
+    linear-gradient(180deg, #f8fbff 0%, #fff6ec 100%);
 }
 
 .card {
-  width: min(560px, 100%);
+  width: min(640px, 100%);
   margin: 0 auto;
   padding: 32px;
   border: 1px solid rgba(23, 32, 51, 0.08);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 22px 72px rgba(35, 50, 78, 0.12);
 }
 
@@ -31,19 +31,40 @@
   font-family: "Georgia", "Times New Roman", serif;
 }
 
-.description {
-  margin-top: 14px;
-  color: #54637c;
+.description,
+.setupNotice,
+.hint,
+.error,
+.success {
   line-height: 1.7;
 }
 
-.modeNote {
-  margin-top: 12px;
-  padding: 12px 14px;
+.description {
+  margin-top: 14px;
+  color: #54637c;
+}
+
+.setupNotice,
+.error,
+.success {
+  margin-top: 16px;
+  padding: 14px 16px;
   border-radius: 18px;
-  background: rgba(31, 94, 255, 0.08);
-  color: #365072;
-  line-height: 1.6;
+}
+
+.setupNotice {
+  background: rgba(139, 94, 52, 0.12);
+  color: #6f4a27;
+}
+
+.error {
+  background: #fff2f0;
+  color: #b42318;
+}
+
+.success {
+  background: #ecfdf3;
+  color: #18794e;
 }
 
 .form {
@@ -52,22 +73,49 @@
   margin-top: 28px;
 }
 
-.label {
-  font-weight: 700;
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
-.input {
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field span {
+  font-weight: 700;
+  color: #24324a;
+}
+
+.field input,
+.field select {
+  width: 100%;
   min-height: 52px;
   padding: 0 16px;
   border: 1px solid rgba(23, 32, 51, 0.14);
   border-radius: 16px;
   background: #fff;
   font: inherit;
+  color: inherit;
 }
 
-.error {
-  color: #b42318;
-  font-size: 0.95rem;
+.section {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 22px;
+  background: #fbfcff;
+}
+
+.section h2 {
+  font-size: 1.05rem;
+}
+
+.hint {
+  color: #60708b;
 }
 
 .actions {
@@ -108,5 +156,9 @@
 
   .card {
     padding: 24px;
+  }
+
+  .fieldGrid {
+    grid-template-columns: 1fr;
   }
 }
