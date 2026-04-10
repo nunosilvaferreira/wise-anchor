@@ -22,14 +22,14 @@ export default function SiteHeader() {
     activeProfile,
     account,
     isAuthenticated,
-    isCloudMode,
     isFirebaseConfigured,
     isSessionReady,
     logout,
     role,
   } = useAppContext();
-  const links =
-    role === "caregiver"
+  const links = !isAuthenticated
+    ? []
+    : role === "caregiver"
       ? [...BASE_LINKS, { href: "/caregiver", label: "Caregiver" }]
       : BASE_LINKS;
   const accountLabel =
@@ -53,34 +53,29 @@ export default function SiteHeader() {
             width={180}
           />
         </Link>
-
-        <div className={styles.sessionMeta}>
-          <span className={isCloudMode ? styles.cloudBadge : styles.localBadge}>
-            {isCloudMode ? "Cloud Sync" : "Local Mode"}
-          </span>
-
-          {isAuthenticated && isSessionReady ? (
-            <span className={styles.accountLabel}>{accountLabel}</span>
-          ) : null}
-        </div>
+        {isAuthenticated && isSessionReady ? (
+          <span className={styles.accountLabel}>{accountLabel}</span>
+        ) : null}
       </div>
 
       <div className={styles.actions}>
-        <nav className={styles.nav}>
-          {links.map((link) => {
-            const isActive = pathname === link.href;
+        {links.length ? (
+          <nav className={styles.nav}>
+            {links.map((link) => {
+              const isActive = pathname === link.href;
 
-            return (
-              <Link
-                className={isActive ? styles.activeLink : styles.link}
-                href={link.href}
-                key={link.href}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
+              return (
+                <Link
+                  className={isActive ? styles.activeLink : styles.link}
+                  href={link.href}
+                  key={link.href}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+        ) : null}
 
         <div className={styles.authActions}>
           {!isSessionReady ? <span className={styles.helperText}>Loading session...</span> : null}
@@ -102,7 +97,7 @@ export default function SiteHeader() {
             </>
           ) : null}
 
-          {isSessionReady && !isFirebaseConfigured ? (
+          {isSessionReady && !isFirebaseConfigured && !isAuthenticated ? (
             <span className={styles.helperText}>Add Firebase env vars to enable login.</span>
           ) : null}
         </div>

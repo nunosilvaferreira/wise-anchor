@@ -44,42 +44,38 @@
   color: #46536d;
 }
 
-.heroMeta {
+.supportActions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 12px;
+  margin-top: 22px;
 }
 
-.cloudPill,
-.localPill,
-.profilePill,
-.authHint,
-.error {
+.sosButton,
+.mobileCallButton {
   display: inline-flex;
   align-items: center;
-  min-height: 38px;
-  padding: 0 14px;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
   border-radius: 999px;
   font-weight: 700;
 }
 
-.cloudPill {
-  background: rgba(24, 125, 81, 0.14);
-  color: #146240;
+.sosButton {
+  border: 0;
+  background: linear-gradient(135deg, #d62828, #f77f00);
+  color: #fff;
+  cursor: pointer;
 }
 
-.localPill {
-  background: rgba(139, 94, 52, 0.14);
-  color: #805530;
+.mobileCallButton {
+  border: 1px solid rgba(23, 32, 51, 0.14);
+  background: #fff;
+  color: #172033;
 }
 
-.profilePill {
-  background: rgba(255, 255, 255, 0.82);
-  color: #34425a;
-}
-
-.authHint,
+.status,
 .error {
   display: block;
   margin-top: 14px;
@@ -87,9 +83,9 @@
   padding: 12px 16px;
 }
 
-.authHint {
-  background: rgba(255, 255, 255, 0.82);
-  color: #44526b;
+.status {
+  background: #ecfdf3;
+  color: #18794e;
 }
 
 .error {
@@ -306,6 +302,11 @@
   gap: 16px;
 }
 
+.taskText {
+  display: grid;
+  gap: 4px;
+}
+
 .taskTime {
   min-width: 68px;
   font-size: 0.92rem;
@@ -316,6 +317,11 @@
 .taskName {
   font-size: 1rem;
   line-height: 1.5;
+}
+
+.taskSchedule {
+  font-size: 0.84rem;
+  color: #6d7b93;
 }
 
 .completedItem .taskName {
@@ -373,8 +379,18 @@
     align-items: flex-start;
   }
 
+  .mobileCallButton {
+    display: inline-flex;
+  }
+
   .insightsGrid,
   .progressGrid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 721px) {
+  .mobileCallButton {
+    display: none;
   }
 }

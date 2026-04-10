@@ -1,6 +1,26 @@
 const APP_STORAGE_KEY = "wise-anchor-app-data";
 const LEGACY_TASKS_KEY = "wise-anchor-tasks";
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const WEEKDAY_PATTERN = /^[0-6]$/;
+const MONTHLY_DAY_PATTERN = /^(?:[1-9]|[12]\d|3[01])$/;
+
+export const TASK_SCHEDULE_OPTIONS = [
+  { value: "daily", label: "Every day" },
+  { value: "specific_date", label: "Specific date" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+export const WEEKDAY_OPTIONS = [
+  { value: "1", label: "Monday" },
+  { value: "2", label: "Tuesday" },
+  { value: "3", label: "Wednesday" },
+  { value: "4", label: "Thursday" },
+  { value: "5", label: "Friday" },
+  { value: "6", label: "Saturday" },
+  { value: "0", label: "Sunday" },
+];
 
 export const ROUTINE_SECTIONS = [
   {
@@ -71,6 +91,8 @@ export const DEFAULT_PERSONAL_DETAILS = {
   email: "",
   gender: "male",
   supportLevel: "moderate",
+  caregiverName: "",
+  caregiverPhone: "",
   contact: "",
   emergencyContact: "",
   dateOfBirth: "",
@@ -85,6 +107,10 @@ export const DEFAULT_DAILY_TASKS = ROUTINE_SECTIONS.flatMap((section) =>
     ...task,
     category: section.id,
     completed: false,
+    completedAt: "",
+    recurrenceValue: "",
+    scheduleDate: "",
+    scheduleType: "daily",
   }))
 );
 
@@ -135,9 +161,83 @@ function normalizeTime(value, fallback) {
   return typeof value === "string" && TIME_PATTERN.test(value) ? value : fallback;
 }
 
-export function validateTaskInput({ name, time, category }) {
+function normalizeScheduleType(value) {
+  return TASK_SCHEDULE_OPTIONS.some((option) => option.value === value)
+    ? value
+    : "daily";
+}
+
+function normalizeScheduleValue(scheduleType, value) {
+  const safeValue = typeof value === "string" ? value : "";
+
+  if (scheduleType === "weekly" && WEEKDAY_PATTERN.test(safeValue)) {
+    return safeValue;
+  }
+
+  if (scheduleType === "monthly" && MONTHLY_DAY_PATTERN.test(safeValue)) {
+    return safeValue;
+  }
+
+  return "";
+}
+
+function normalizeScheduleDate(value) {
+  return typeof value === "string" && DATE_PATTERN.test(value) ? value : "";
+}
+
+export function getTaskScheduleSummary(task) {
+  const scheduleType = normalizeScheduleType(task?.scheduleType);
+
+  if (scheduleType === "specific_date") {
+    return task?.scheduleDate ? `On ${task.scheduleDate}` : "Specific date";
+  }
+
+  if (scheduleType === "weekly") {
+    return WEEKDAY_OPTIONS.find((option) => option.value === task?.recurrenceValue)?.label ?? "Weekly";
+  }
+
+  if (scheduleType === "monthly") {
+    return task?.recurrenceValue ? `Day ${task.recurrenceValue} each month` : "Monthly";
+  }
+
+  return "Every day";
+}
+
+export function isTaskScheduledForDate(task, date = new Date()) {
+  const scheduleType = normalizeScheduleType(task?.scheduleType);
+
+  if (scheduleType === "specific_date") {
+    const currentDate = [
+      date.getFullYear(),
+      `${date.getMonth() + 1}`.padStart(2, "0"),
+      `${date.getDate()}`.padStart(2, "0"),
+    ].join("-");
+
+    return task?.scheduleDate === currentDate;
+  }
+
+  if (scheduleType === "weekly") {
+    return task?.recurrenceValue === `${date.getDay()}`;
+  }
+
+  if (scheduleType === "monthly") {
+    return task?.recurrenceValue === `${date.getDate()}`;
+  }
+
+  return true;
+}
+
+export function validateTaskInput({
+  name,
+  time,
+  category,
+  scheduleDate = "",
+  recurrenceValue = "",
+  scheduleType = "daily",
+}) {
   // Throw explicit validation errors so UI forms can show friendly feedback.
   const trimmedName = typeof name === "string" ? name.trim() : "";
+  const normalizedScheduleType = normalizeScheduleType(scheduleType);
 
   if (!trimmedName) {
     throw new TaskValidationError("Task name is required.", "name");
@@ -155,10 +255,28 @@ export function validateTaskInput({ name, time, category }) {
     throw new TaskValidationError("Please choose a valid routine section.", "category");
   }
 
+  if (normalizedScheduleType === "specific_date" && !DATE_PATTERN.test(scheduleDate)) {
+    throw new TaskValidationError("Please choose the date for this task.", "scheduleDate");
+  }
+
+  if (normalizedScheduleType === "weekly" && !WEEKDAY_PATTERN.test(recurrenceValue)) {
+    throw new TaskValidationError("Please choose the weekday for this weekly task.", "recurrenceValue");
+  }
+
+  if (normalizedScheduleType === "monthly" && !MONTHLY_DAY_PATTERN.test(recurrenceValue)) {
+    throw new TaskValidationError("Please choose a monthly day between 1 and 31.", "recurrenceValue");
+  }
+
   return {
     name: trimmedName,
     time,
     category,
+    recurrenceValue:
+      normalizedScheduleType === "weekly" || normalizedScheduleType === "monthly"
+        ? recurrenceValue
+        : "",
+    scheduleDate: normalizedScheduleType === "specific_date" ? scheduleDate : "",
+    scheduleType: normalizedScheduleType,
   };
 }
 
@@ -181,6 +299,13 @@ function normalizeTask(task, index) {
     time: normalizeTime(task?.time, fallback.time),
     name: typeof task?.name === "string" && task.name ? task.name : fallback.name,
     completed: Boolean(task?.completed),
+    completedAt: typeof task?.completedAt === "string" ? task.completedAt : "",
+    recurrenceValue: normalizeScheduleValue(
+      normalizeScheduleType(task?.scheduleType),
+      task?.recurrenceValue
+    ),
+    scheduleDate: normalizeScheduleDate(task?.scheduleDate),
+    scheduleType: normalizeScheduleType(task?.scheduleType),
   };
 }
 
@@ -274,13 +399,23 @@ export function loadPersonalDetails() {
   return loadAppData().personalDetails;
 }
 
-export function addTask({ name, time, category }) {
+export function addTask({
+  name,
+  time,
+  category,
+  scheduleDate = "",
+  recurrenceValue = "",
+  scheduleType = "daily",
+}) {
   // Validate before creating a new task so invalid entries never reach storage.
   const appData = loadAppData();
   const validTask = validateTaskInput({
     name,
     time: time || "18:00",
     category: category || ROUTINE_SECTIONS[4].id,
+    recurrenceValue,
+    scheduleDate,
+    scheduleType,
   });
   const nextTasks = [
     ...appData.dailyTasks,
@@ -290,6 +425,10 @@ export function addTask({ name, time, category }) {
       time: validTask.time,
       name: validTask.name,
       completed: false,
+      completedAt: "",
+      recurrenceValue: validTask.recurrenceValue,
+      scheduleDate: validTask.scheduleDate,
+      scheduleType: validTask.scheduleType,
     },
   ];
 
@@ -306,11 +445,15 @@ export function saveDailyTasks(tasks) {
       name: task.name,
       time: task.time,
       category: task.category,
+      recurrenceValue: task.recurrenceValue,
+      scheduleDate: task.scheduleDate,
+      scheduleType: task.scheduleType,
     });
 
     return {
       ...task,
       ...validTask,
+      completedAt: typeof task.completedAt === "string" ? task.completedAt : "",
     };
   });
   const appData = loadAppData();
@@ -335,10 +478,15 @@ export function toggleTaskCompleted(taskId) {
   const tasks = loadTasks();
   const nextTasks = tasks.map((task) =>
     task.id === taskId
-      ? {
-          ...task,
-          completed: !task.completed,
-        }
+      ? (() => {
+          const nextCompleted = !task.completed;
+
+          return {
+            ...task,
+            completed: nextCompleted,
+            completedAt: nextCompleted ? new Date().toISOString() : "",
+          };
+        })()
       : task
   );
 

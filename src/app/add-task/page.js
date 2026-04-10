@@ -1,3 +1,4 @@
+import AuthGuard from "../../components/auth-guard";
 import AddTaskForm from "../../components/add-task-form";
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function AddTaskPage() {
-  return <AddTaskForm />;
+  return (
+    <AuthGuard>
+      <AddTaskForm />
+    </AuthGuard>
+  );
 }

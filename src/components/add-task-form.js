@@ -4,15 +4,22 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import SiteHeader from "./site-header";
 import styles from "./add-task-form.module.css";
-import { ROUTINE_SECTIONS } from "../lib/task-storage";
+import {
+  ROUTINE_SECTIONS,
+  TASK_SCHEDULE_OPTIONS,
+  WEEKDAY_OPTIONS,
+} from "../lib/task-storage";
 import { useAppContext } from "./app-provider";
 
 export default function AddTaskForm() {
   const router = useRouter();
-  const { TaskValidationError, addTask, isCloudMode } = useAppContext();
+  const { TaskValidationError, addTask } = useAppContext();
   const [taskName, setTaskName] = useState("");
   const [taskTime, setTaskTime] = useState("18:00");
   const [taskCategory, setTaskCategory] = useState(ROUTINE_SECTIONS[4].id);
+  const [scheduleType, setScheduleType] = useState("daily");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [recurrenceValue, setRecurrenceValue] = useState("");
   const [error, setError] = useState("");
 
   async function handleSubmit(event) {
@@ -24,6 +31,9 @@ export default function AddTaskForm() {
       await addTask({
         name: taskName,
         category: taskCategory,
+        recurrenceValue,
+        scheduleDate,
+        scheduleType,
         time: taskTime,
       });
 
@@ -46,13 +56,8 @@ export default function AddTaskForm() {
         <p className={styles.kicker}>Task Entry</p>
         <h1>Add a New Task</h1>
         <p className={styles.description}>
-          Create an extra routine step and choose the time it should appear in
-          Today&apos;s Routine.
-        </p>
-        <p className={styles.modeNote}>
-          {isCloudMode
-            ? "This task will sync through Firebase and remain cached on the device."
-            : "This task will be saved only on the current device until you sign in."}
+          Create an extra routine step and choose whether it should happen
+          every day, on a specific date, weekly, or monthly.
         </p>
 
         <form className={styles.form} onSubmit={handleSubmit}>
@@ -99,6 +104,82 @@ export default function AddTaskForm() {
               </option>
             ))}
           </select>
+
+          <label className={styles.label} htmlFor="scheduleType">
+            Schedule
+          </label>
+          <select
+            className={styles.input}
+            id="scheduleType"
+            onChange={(event) => {
+              const nextScheduleType = event.target.value;
+
+              setScheduleType(nextScheduleType);
+              setScheduleDate("");
+              setRecurrenceValue("");
+            }}
+            value={scheduleType}
+          >
+            {TASK_SCHEDULE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          {scheduleType === "specific_date" ? (
+            <>
+              <label className={styles.label} htmlFor="scheduleDate">
+                Task date
+              </label>
+              <input
+                className={styles.input}
+                id="scheduleDate"
+                onChange={(event) => setScheduleDate(event.target.value)}
+                type="date"
+                value={scheduleDate}
+              />
+            </>
+          ) : null}
+
+          {scheduleType === "weekly" ? (
+            <>
+              <label className={styles.label} htmlFor="recurrenceWeekday">
+                Weekday
+              </label>
+              <select
+                className={styles.input}
+                id="recurrenceWeekday"
+                onChange={(event) => setRecurrenceValue(event.target.value)}
+                value={recurrenceValue}
+              >
+                <option value="">Choose a weekday</option>
+                {WEEKDAY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : null}
+
+          {scheduleType === "monthly" ? (
+            <>
+              <label className={styles.label} htmlFor="monthlyDay">
+                Day of month
+              </label>
+              <input
+                className={styles.input}
+                id="monthlyDay"
+                max="31"
+                min="1"
+                onChange={(event) => setRecurrenceValue(event.target.value)}
+                placeholder="Example: 15"
+                type="number"
+                value={recurrenceValue}
+              />
+            </>
+          ) : null}
 
           {error ? <p className={styles.error}>{error}</p> : null}
 

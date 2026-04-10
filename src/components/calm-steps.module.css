@@ -151,6 +151,61 @@
   line-height: 1.7;
 }
 
+.urgentNotice,
+.status,
+.error {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  line-height: 1.7;
+}
+
+.urgentNotice {
+  background: rgba(214, 40, 40, 0.1);
+  color: #9c2a2a;
+}
+
+.status {
+  background: #ecfdf3;
+  color: #18794e;
+}
+
+.error {
+  background: #fff2f0;
+  color: #b42318;
+}
+
+.supportActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.sosButton,
+.mobileCallButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.sosButton {
+  border: 0;
+  background: linear-gradient(135deg, #d62828, #f77f00);
+  color: #fff;
+  cursor: pointer;
+}
+
+.mobileCallButton {
+  border: 1px solid rgba(23, 32, 51, 0.14);
+  background: #fff;
+  color: #172033;
+}
+
 .pathHeader {
   margin-bottom: 14px;
 }
@@ -215,5 +270,15 @@
 
   .supportPanel {
     padding: 20px;
+  }
+
+  .mobileCallButton {
+    display: inline-flex;
+  }
+}
+
+@media (min-width: 641px) {
+  .mobileCallButton {
+    display: none;
   }
 }

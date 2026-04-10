@@ -165,8 +165,16 @@ function getGender(genderValue) {
 
 export default function CalmSteps() {
   const [selectedFeeling, setSelectedFeeling] = useState(FEELINGS[0]);
-  const { personalDetails } = useAppContext();
+  const {
+    activeProfile,
+    personalDetails,
+    role,
+    triggerSosAlert,
+    updateFeelingStatus,
+  } = useAppContext();
   const [isReady, setIsReady] = useState(false);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -176,12 +184,64 @@ export default function CalmSteps() {
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
+  useEffect(() => {
+    const savedFeeling = FEELINGS.find(
+      (feeling) => feeling.id === activeProfile?.currentFeeling?.id
+    );
+
+    if (savedFeeling) {
+      const frame = window.requestAnimationFrame(() => {
+        setSelectedFeeling(savedFeeling);
+      });
+
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    return undefined;
+  }, [activeProfile?.currentFeeling?.id]);
+
+  async function handleFeelingSelect(feeling) {
+    setSelectedFeeling(feeling);
+    setError("");
+
+    try {
+      await updateFeelingStatus(feeling);
+      setStatus(
+        ["overwhelmed", "frustrated", "distressed"].includes(feeling.id)
+          ? "Feeling updated. A caregiver push alert is sent when a caregiver device is registered."
+          : "Feeling updated."
+      );
+    } catch (saveError) {
+      setError(saveError.message || "Could not update the current feeling.");
+    }
+  }
+
+  async function handleSendSos() {
+    setError("");
+
+    try {
+      await triggerSosAlert({
+        mode: "calm_steps",
+        note: "SOS triggered from the Calm Steps page.",
+      });
+      setStatus(
+        "SOS alert saved. A push notification is also sent when a caregiver device is registered."
+      );
+    } catch (sosError) {
+      setError(sosError.message || "Could not send the SOS alert.");
+    }
+  }
+
   const gender = getGender(personalDetails.gender);
   const age = getAgeFromDateOfBirth(personalDetails.dateOfBirth);
   const effectiveAge = age ?? 18;
   const hasProfileData = age !== null && Boolean(personalDetails.gender);
   const ageGroup = getAgeGroup(effectiveAge);
   const personaLabel = getPersonaLabel(ageGroup, gender);
+  const caregiverPhone = personalDetails.caregiverPhone.trim();
+  const showSupportActions =
+    role !== "caregiver" &&
+    (activeProfile?.profileType === "dependent" || Boolean(caregiverPhone));
   const guidedSteps = useMemo(
     () => flattenGuidedSteps(GUIDED_PATHS[selectedFeeling.id] ?? []),
     [selectedFeeling]
@@ -237,7 +297,7 @@ export default function CalmSteps() {
                 selectedFeeling.id === feeling.id ? styles.activeFeeling : styles.feeling
               }
               key={feeling.id}
-              onClick={() => setSelectedFeeling(feeling)}
+              onClick={() => handleFeelingSelect(feeling)}
               type="button"
             >
               <Image
@@ -266,6 +326,37 @@ export default function CalmSteps() {
               <p>{selectedFeeling.message}</p>
             </div>
           </div>
+
+          {selectedFeeling.id === "overwhelmed" ||
+          selectedFeeling.id === "frustrated" ||
+          selectedFeeling.id === "distressed" ? (
+            <p className={styles.urgentNotice}>
+              This feeling is marked as urgent for caregiver visibility.
+            </p>
+          ) : null}
+
+          {showSupportActions ? (
+            <div className={styles.supportActions}>
+              <button
+                className={styles.sosButton}
+                onClick={handleSendSos}
+                type="button"
+              >
+                Send SOS Alert
+              </button>
+              {caregiverPhone ? (
+                <a
+                  className={styles.mobileCallButton}
+                  href={`tel:${caregiverPhone.replace(/\s+/g, "")}`}
+                >
+                  Call Caregiver
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+
+          {status ? <p className={styles.status}>{status}</p> : null}
+          {error ? <p className={styles.error}>{error}</p> : null}
 
           <div className={styles.pathHeader}>
             <h3>Guided Sequence</h3>

@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { format, parse } from "date-fns";
 import SiteHeader from "./site-header";
 import styles from "./routine-board.module.css";
-import { ROUTINE_SECTIONS } from "../lib/task-storage";
+import {
+  getTaskScheduleSummary,
+  isTaskScheduledForDate,
+  ROUTINE_SECTIONS,
+} from "../lib/task-storage";
 import { useAppContext } from "./app-provider";
 
 function formatDay(date) {
@@ -26,17 +30,16 @@ export default function RoutineBoard() {
   const {
     activeProfile,
     clearCompletedTasks,
-    currentUser,
-    isCloudMode,
-    isFirebaseConfigured,
     personalDetails,
     role,
     tasks,
+    triggerSosAlert,
     toggleTaskCompleted,
   } = useAppContext();
   const [now, setNow] = useState(() => new Date());
   const [isReady, setIsReady] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [actionStatus, setActionStatus] = useState("");
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -58,6 +61,7 @@ export default function RoutineBoard() {
     // Persist the task state change, then update local component state.
     try {
       setActionError("");
+      setActionStatus("");
       await toggleTaskCompleted(taskId);
     } catch (error) {
       setActionError(error.message || "Could not update that task right now.");
@@ -68,18 +72,35 @@ export default function RoutineBoard() {
     // Remove completed items from storage and refresh the rendered list.
     try {
       setActionError("");
+      setActionStatus("");
       await clearCompletedTasks();
     } catch (error) {
       setActionError(error.message || "Could not clear completed tasks right now.");
     }
   }
 
-  const completedCount = tasks.filter((task) => task.completed).length;
-  const remainingCount = tasks.length - completedCount;
-  const completionRate = tasks.length
-    ? Math.round((completedCount / tasks.length) * 100)
+  async function handleSendSos() {
+    try {
+      setActionError("");
+      await triggerSosAlert({
+        mode: "manual",
+        note: "SOS requested from the routine dashboard.",
+      });
+      setActionStatus(
+        "SOS alert saved. A push notification is also sent when a caregiver device is registered."
+      );
+    } catch (error) {
+      setActionError(error.message || "Could not send SOS right now.");
+    }
+  }
+
+  const visibleTasks = tasks.filter((task) => isTaskScheduledForDate(task, now));
+  const completedCount = visibleTasks.filter((task) => task.completed).length;
+  const remainingCount = visibleTasks.length - completedCount;
+  const completionRate = visibleTasks.length
+    ? Math.round((completedCount / visibleTasks.length) * 100)
     : 0;
-  const pendingTasks = tasks.filter((task) => !task.completed);
+  const pendingTasks = visibleTasks.filter((task) => !task.completed);
 
   const sortedPendingTasks = pendingTasks
     .map((task) => ({
@@ -94,7 +115,7 @@ export default function RoutineBoard() {
     null;
 
   const sectionStats = ROUTINE_SECTIONS.map((section) => {
-    const sectionTasks = tasks.filter((task) => task.category === section.id);
+    const sectionTasks = visibleTasks.filter((task) => task.category === section.id);
     const completedInSection = sectionTasks.reduce(
       (count, task) => count + (task.completed ? 1 : 0),
       0
@@ -123,10 +144,10 @@ export default function RoutineBoard() {
   })[0];
 
   const greetingName = personalDetails.fullName || "friend";
-  const profileLabel =
-    activeProfile?.profileType === "dependent"
-      ? `${activeProfile.fullName}'s plan`
-      : "Your plan";
+  const caregiverPhone = personalDetails.caregiverPhone.trim();
+  const showSupportActions =
+    role !== "caregiver" &&
+    (activeProfile?.profileType === "dependent" || Boolean(caregiverPhone));
 
   if (!isReady) {
     return (
@@ -148,20 +169,26 @@ export default function RoutineBoard() {
             Stay grounded with a clear routine, visible timing, and calm pacing
             through the day.
           </p>
-          <div className={styles.heroMeta}>
-            <span className={isCloudMode ? styles.cloudPill : styles.localPill}>
-              {isCloudMode ? "Synced with Firebase" : "Saved on this device"}
-            </span>
-            <span className={styles.profilePill}>{profileLabel}</span>
-            {role === "caregiver" ? (
-              <span className={styles.profilePill}>Caregiver view</span>
-            ) : null}
-          </div>
-          {isFirebaseConfigured && !currentUser ? (
-            <p className={styles.authHint}>
-              Sign in to sync routines across multiple devices with Firebase.
-            </p>
+          {showSupportActions ? (
+            <div className={styles.supportActions}>
+              <button
+                className={styles.sosButton}
+                onClick={handleSendSos}
+                type="button"
+              >
+                Send SOS Alert
+              </button>
+              {caregiverPhone ? (
+                <a
+                  className={styles.mobileCallButton}
+                  href={`tel:${caregiverPhone.replace(/\s+/g, "")}`}
+                >
+                  Call Caregiver
+                </a>
+              ) : null}
+            </div>
           ) : null}
+          {actionStatus ? <p className={styles.status}>{actionStatus}</p> : null}
           {actionError ? <p className={styles.error}>{actionError}</p> : null}
         </div>
 
@@ -197,7 +224,7 @@ export default function RoutineBoard() {
                 {nextTask.name} at {formatTime(nextTask.scheduleDate)}
               </p>
             ) : (
-              <p>All tasks completed for now.</p>
+              <p>No scheduled tasks left for today.</p>
             )}
           </article>
 
@@ -233,7 +260,7 @@ export default function RoutineBoard() {
 
         <div className={styles.taskGroups}>
           {ROUTINE_SECTIONS.map((section) => {
-            const sectionTasks = tasks.filter((task) => task.category === section.id);
+            const sectionTasks = visibleTasks.filter((task) => task.category === section.id);
 
             if (!sectionTasks.length) {
               return null;
@@ -256,7 +283,12 @@ export default function RoutineBoard() {
                       >
                         <div className={styles.taskMeta}>
                           <span className={styles.taskTime}>{task.time}</span>
-                          <span className={styles.taskName}>{task.name}</span>
+                          <div className={styles.taskText}>
+                            <span className={styles.taskName}>{task.name}</span>
+                            <span className={styles.taskSchedule}>
+                              {getTaskScheduleSummary(task)}
+                            </span>
+                          </div>
                         </div>
                         <span className={styles.taskStatus}>
                           {task.completed ? "Completed" : "Mark Complete"}
@@ -270,12 +302,12 @@ export default function RoutineBoard() {
           })}
         </div>
 
-        {!tasks.length ? (
+        {!visibleTasks.length ? (
           <div className={styles.emptyState}>
-            <h3>No routine tasks available</h3>
+            <h3>No routine tasks scheduled for today</h3>
             <p>
-              Open Settings and restore the daily tasks list, or add your own
-              task from the Add Task page.
+              Add a task with today&apos;s date, or create a weekly/monthly task
+              that matches the current day.
             </p>
           </div>
         ) : null}

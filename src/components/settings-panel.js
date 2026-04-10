@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import SiteHeader from "./site-header";
 import styles from "./settings-panel.module.css";
-import { ROUTINE_SECTIONS } from "../lib/task-storage";
+import {
+  ROUTINE_SECTIONS,
+  TASK_SCHEDULE_OPTIONS,
+  WEEKDAY_OPTIONS,
+} from "../lib/task-storage";
 import { SUPPORT_LEVEL_OPTIONS } from "../lib/profile-utils";
 import { useAppContext } from "./app-provider";
 
@@ -16,7 +20,6 @@ export default function SettingsPanel() {
   const {
     TaskValidationError,
     activeProfile,
-    isCloudMode,
     personalDetails: storedPersonalDetails,
     resetDailyTasks,
     saveDailyTasks,
@@ -88,6 +91,10 @@ export default function SettingsPanel() {
       {
         id: `${Date.now()}-${category}-${nextTaskNumber}`,
         category,
+        completedAt: "",
+        recurrenceValue: "",
+        scheduleDate: "",
+        scheduleType: "daily",
         time: section?.defaultTime ?? "09:00",
         name: `${section?.label ?? "Routine"} task ${nextTaskNumber}`,
         completed: false,
@@ -154,11 +161,6 @@ export default function SettingsPanel() {
           <p className={styles.description}>
             Update personal details and adjust the task schedule that appears in
             Today&apos;s Routine.
-          </p>
-          <p className={styles.modeNote}>
-            {isCloudMode
-              ? "Changes sync through Firebase and stay cached on this device for offline use."
-              : "Changes are currently saved only on this device."}
           </p>
 
           <div className={styles.tabs}>
@@ -227,6 +229,34 @@ export default function SettingsPanel() {
                     }
                     type="text"
                     value={personalDetails.contact}
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span>Caregiver name</span>
+                  <input
+                    onChange={(event) =>
+                      setPersonalDetails((current) => ({
+                        ...current,
+                        caregiverName: event.target.value,
+                      }))
+                    }
+                    type="text"
+                    value={personalDetails.caregiverName}
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span>Caregiver phone</span>
+                  <input
+                    onChange={(event) =>
+                      setPersonalDetails((current) => ({
+                        ...current,
+                        caregiverPhone: event.target.value,
+                      }))
+                    }
+                    type="tel"
+                    value={personalDetails.caregiverPhone}
                   />
                 </label>
 
@@ -362,10 +392,9 @@ export default function SettingsPanel() {
             <div className={styles.tasksPanel}>
               <div className={styles.tasksHeader}>
                 <div>
-                  <h2>Daily Tasks</h2>
+                  <h2>Routine Tasks</h2>
                   <p>
-                    This predefined routine appears on the Today page. You can
-                    edit the times and task names before saving.
+                    Edit the task times, names, and schedules before saving.
                   </p>
                 </div>
 
@@ -416,27 +445,96 @@ export default function SettingsPanel() {
                       <div className={styles.taskCards}>
                         {sectionTasks.map((task) => (
                           <div className={styles.taskCard} key={task.id}>
-                            <label className={styles.field}>
-                              <span>Time</span>
-                              <input
-                                onChange={(event) =>
-                                  handleTaskChange(task.id, "time", event.target.value)
-                                }
-                                type="time"
-                                value={task.time}
-                              />
-                            </label>
+                            <div className={styles.taskFields}>
+                              <label className={styles.field}>
+                                <span>Time</span>
+                                <input
+                                  onChange={(event) =>
+                                    handleTaskChange(task.id, "time", event.target.value)
+                                  }
+                                  type="time"
+                                  value={task.time}
+                                />
+                              </label>
 
-                            <label className={styles.field}>
-                              <span>Task</span>
-                              <input
-                                onChange={(event) =>
-                                  handleTaskChange(task.id, "name", event.target.value)
-                                }
-                                type="text"
-                                value={task.name}
-                              />
-                            </label>
+                              <label className={styles.field}>
+                                <span>Task</span>
+                                <input
+                                  onChange={(event) =>
+                                    handleTaskChange(task.id, "name", event.target.value)
+                                  }
+                                  type="text"
+                                  value={task.name}
+                                />
+                              </label>
+
+                              <label className={styles.field}>
+                                <span>Schedule</span>
+                                <select
+                                  onChange={(event) => {
+                                    const nextScheduleType = event.target.value;
+
+                                    handleTaskChange(task.id, "scheduleType", nextScheduleType);
+                                    handleTaskChange(task.id, "scheduleDate", "");
+                                    handleTaskChange(task.id, "recurrenceValue", "");
+                                  }}
+                                  value={task.scheduleType ?? "daily"}
+                                >
+                                  {TASK_SCHEDULE_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+
+                              {task.scheduleType === "specific_date" ? (
+                                <label className={styles.field}>
+                                  <span>Date</span>
+                                  <input
+                                    onChange={(event) =>
+                                      handleTaskChange(task.id, "scheduleDate", event.target.value)
+                                    }
+                                    type="date"
+                                    value={task.scheduleDate ?? ""}
+                                  />
+                                </label>
+                              ) : null}
+
+                              {task.scheduleType === "weekly" ? (
+                                <label className={styles.field}>
+                                  <span>Weekday</span>
+                                  <select
+                                    onChange={(event) =>
+                                      handleTaskChange(task.id, "recurrenceValue", event.target.value)
+                                    }
+                                    value={task.recurrenceValue ?? ""}
+                                  >
+                                    <option value="">Choose a weekday</option>
+                                    {WEEKDAY_OPTIONS.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              ) : null}
+
+                              {task.scheduleType === "monthly" ? (
+                                <label className={styles.field}>
+                                  <span>Day of month</span>
+                                  <input
+                                    max="31"
+                                    min="1"
+                                    onChange={(event) =>
+                                      handleTaskChange(task.id, "recurrenceValue", event.target.value)
+                                    }
+                                    type="number"
+                                    value={task.recurrenceValue ?? ""}
+                                  />
+                                </label>
+                              ) : null}
+                            </div>
 
                             <button
                               className={styles.deleteButton}

@@ -75,14 +75,6 @@
   color: #fff;
 }
 
-.sessionMeta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.cloudBadge,
-.localBadge,
 .accountLabel,
 .helperText {
   display: inline-flex;
@@ -91,16 +83,6 @@
   padding: 0 12px;
   border-radius: 999px;
   font-weight: 700;
-}
-
-.cloudBadge {
-  background: rgba(24, 125, 81, 0.14);
-  color: #146240;
-}
-
-.localBadge {
-  background: rgba(139, 94, 52, 0.14);
-  color: #805530;
 }
 
 .accountLabel {

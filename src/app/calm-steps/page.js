@@ -1,3 +1,4 @@
+import AuthGuard from "../../components/auth-guard";
 import CalmSteps from "../../components/calm-steps";
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function CalmStepsPage() {
-  return <CalmSteps />;
+  return (
+    <AuthGuard>
+      <CalmSteps />
+    </AuthGuard>
+  );
 }

@@ -46,8 +46,8 @@ export default function LoginForm() {
         <p className={styles.kicker}>Account Access</p>
         <h1>Login</h1>
         <p className={styles.description}>
-          Sign in to sync routines across devices while keeping a cached copy
-          available offline on each device.
+          Sign in to access routines, caregiver monitoring, and urgent support
+          actions.
         </p>
 
         {!isFirebaseConfigured ? (
@@ -57,12 +57,19 @@ export default function LoginForm() {
           </p>
         ) : null}
 
+        <p className={styles.hint}>
+          Mobile biometric login is not enabled in this version. A secure
+          implementation would require passkeys or a native mobile wrapper,
+          not stored passwords in the browser.
+        </p>
+
         {error ? <p className={styles.error}>{error}</p> : null}
 
         <form className={styles.form} onSubmit={handleSubmit}>
           <label className={styles.field}>
             <span>Email</span>
             <input
+              autoComplete="username"
               onChange={(event) => setEmail(event.target.value)}
               type="email"
               value={email}
@@ -72,6 +79,7 @@ export default function LoginForm() {
           <label className={styles.field}>
             <span>Password</span>
             <input
+              autoComplete="current-password"
               onChange={(event) => setPassword(event.target.value)}
               type="password"
               value={password}

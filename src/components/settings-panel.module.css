@@ -51,15 +51,6 @@
   line-height: 1.7;
 }
 
-.modeNote {
-  margin-top: 14px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: rgba(31, 94, 255, 0.08);
-  color: #365072;
-  line-height: 1.6;
-}
-
 .tabs {
   display: grid;
   gap: 10px;
@@ -216,8 +207,8 @@
 }
 
 .taskCard {
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   padding: 18px;
   border: 1px solid rgba(23, 32, 51, 0.08);
@@ -225,8 +216,14 @@
   background: #fbfcff;
 }
 
+.taskFields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
 .deleteButton {
-  align-self: end;
+  align-self: flex-start;
   min-height: 46px;
   padding: 0 16px;
   border: 1px solid rgba(179, 35, 24, 0.18);
@@ -254,7 +251,7 @@
   }
 
   .fieldGrid,
-  .taskCard {
+  .taskFields {
     grid-template-columns: 1fr;
   }
 

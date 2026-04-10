@@ -1,3 +1,4 @@
+import AuthGuard from "../../components/auth-guard";
 import CaregiverDashboard from "../../components/caregiver-dashboard";
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function CaregiverPage() {
-  return <CaregiverDashboard />;
+  return (
+    <AuthGuard requireCaregiver>
+      <CaregiverDashboard />
+    </AuthGuard>
+  );
 }

@@ -1,60 +1,29 @@
 # Overview
 
-WiseAnchor is a web app that helps users build a predictable daily routine, add custom tasks, and review calming guidance when they need extra structure. The current version supports both local-only storage on a single device and optional Firebase-backed authentication and sync for multi-device use.
+WiseAnchor is a web app that helps users build a predictable daily routine, add custom tasks, and review calming guidance when they need extra structure. The current version uses Firebase-backed authentication and sync for multi-device use, including caregiver alerts sent through Firebase Cloud Messaging.
 
-The project is designed around three usage modes:
+The project is designed around two account types:
 
-1. Local guest mode
-The routine is stored only on the current device with browser storage.
-
-2. Independent account mode
+1. Independent account mode
 A functional autistic user can register and sync their own routine across devices with Firebase.
 
-3. Caregiver mode
+2. Caregiver mode
 A parent or caregiver can register, create dependent profiles, and manage routines for children under 18 or adults with severe support needs.
 
 This project fulfills the CSE 310 Module #3 Web Apps requirements by using Next.js and React to render multiple interactive pages, respond to user input, and dynamically display stored routine data. It also goes beyond the minimum requirement by including account-based sync, caregiver workflows, and more than two dynamic pages.
 
 [Software Demo Video](http://youtube.link.goes.here)
 
-# Setup
-
-1. Install dependencies:
-`pnpm install`
-
-2. For local-only mode, start the project directly:
-`pnpm dev`
-
-3. To enable Firebase authentication and sync, copy `.env.example` to `.env.local` and fill in the Firebase web app values:
-
-```env
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
-```
-
-4. In Firebase Console, enable:
-- Authentication with Email/Password
-- Cloud Firestore
-
-5. Start the development server:
-`pnpm dev`
-
-6. Open `http://localhost:3000`
-
 # Authentication And Sync
 
-When Firebase is configured, the app uses Firebase Authentication for login and registration, and Firestore for profile and task storage. Firestore is initialized with offline persistence, so each device keeps a cached local copy of the latest synced data.
+When Firebase is configured, the app uses Firebase Authentication for login and registration, Firestore for profile and task storage, and Firebase Cloud Messaging for caregiver push alerts. Firestore is initialized with offline persistence, so each device keeps a cached local copy of the latest synced data.
 
 This means the app can work in a local-first way:
 - changes are available on the current device immediately
 - changes sync between devices when the same account is used on multiple devices
 - cached routine data remains available offline
 
-Caregiver accounts can create and switch between dependent profiles. Independent accounts manage their own single synced profile.
+Caregiver accounts can create and switch between dependent profiles. Independent accounts manage their own single synced profile. A caregiver device can enable push notifications from the Caregiver page, and urgent feelings or SOS events from the dependent profile trigger a real-time push alert.
 
 # Web Pages
 
@@ -68,7 +37,7 @@ The `Calm Steps` page acts as an additional dynamically generated page for the s
 
 The `Login` and `Register` pages provide account access for caregivers and independent users when Firebase is configured.
 
-The `Caregiver` page lets a caregiver manage dependent profiles and switch the active routine between linked users.
+The `Caregiver` page lets a caregiver manage dependent profiles, switch the active routine between linked users, enable caregiver push alerts on the current device, and send a real push test.
 
 Navigation between pages is handled by the shared header, and the `Add Task` page also redirects back to `Today` after a successful save.
 
@@ -77,21 +46,6 @@ Navigation between pages is handled by the shared header, and the `Add Task` pag
 I used Visual Studio Code, Node.js, pnpm, Next.js, React, and browser developer tools to build and test this web app.
 
 The application is written in JavaScript and uses the Next.js App Router for page generation, React for interactive UI logic, CSS Modules for component styling, `date-fns` for readable date and time formatting, and Firebase for authentication and cross-device synchronization.
-
-# Netlify Deployment
-
-This project can be deployed on Netlify as a standard Next.js application.
-
-To deploy:
-
-1. Push the repository to GitHub.
-2. Import the repository into Netlify.
-3. Add the same `NEXT_PUBLIC_FIREBASE_*` environment variables in the Netlify dashboard.
-4. Use the default Next.js build detection, or the standard command:
-`pnpm build`
-5. Publish the site.
-
-Netlify hosts the application itself. Firebase stores the shared profile and task data. Firestore offline persistence keeps a cached copy on each device, which is the closest match to "store locally on the device" while still allowing sync between devices.
 
 # Useful Websites
 
@@ -102,11 +56,14 @@ Netlify hosts the application itself. Firebase stores the shared profile and tas
 * [Firebase Web Setup](https://firebase.google.com/docs/web/setup)
 * [Firebase Authentication for Web](https://firebase.google.com/docs/auth/web/start)
 * [Cloud Firestore Offline Persistence](https://firebase.google.com/docs/firestore/manage-data/enable-offline)
-* [Netlify Next.js Overview](https://docs.netlify.com/frameworks/next-js/overview/)
+* [Cloud Firestore Security Rules](https://firebase.google.com/docs/firestore/security/get-started)
+* [Firebase Cloud Messaging for Web](https://firebase.google.com/docs/cloud-messaging/web/get-started)
+* [Firebase Admin SDK Messaging](https://firebase.google.com/docs/cloud-messaging/send/admin-sdk)
+* [Firebase Cloud Messaging Product Page](https://firebase.google.com/products/cloud-messaging)
 * [CSE 310 Module Summary](https://byui-cse.github.io/cse310-course/modules/module_descriptions.html)
 
 # Future Work
 
 * Add secure invitation flows so a caregiver and an independent user can share the same profile without using the same login.
-* Add notifications and reminders for upcoming routine tasks.
 * Let users reorder tasks directly from the dashboard with drag-and-drop controls.
+* Replace password login on mobile with a passkey or native biometric flow.

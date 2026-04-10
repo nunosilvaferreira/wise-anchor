@@ -47,6 +47,10 @@ import {
   firebaseDb,
   isFirebaseConfigured,
 } from "../lib/firebase";
+import {
+  sendCaregiverAlert,
+  unregisterStoredCaregiverPush,
+} from "../lib/push-client";
 
 const AppContext = createContext(null);
 
@@ -58,8 +62,36 @@ function createTaskId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
+function normalizeFeelingRecord(feeling) {
+  if (!feeling || typeof feeling.id !== "string") {
+    return null;
+  }
+
+  return {
+    id: feeling.id,
+    isUrgent: Boolean(feeling.isUrgent),
+    label: typeof feeling.label === "string" ? feeling.label : "Unknown",
+    message: typeof feeling.message === "string" ? feeling.message : "",
+    updatedAt: typeof feeling.updatedAt === "string" ? feeling.updatedAt : "",
+  };
+}
+
+function normalizeSosRecord(alert) {
+  if (!alert || typeof alert.updatedAt !== "string") {
+    return null;
+  }
+
+  return {
+    mode: typeof alert.mode === "string" ? alert.mode : "manual",
+    note: typeof alert.note === "string" ? alert.note : "",
+    updatedAt: alert.updatedAt,
+  };
+}
+
 function buildProfilePayload({
   caregiverUid = null,
+  caregiverName = "",
+  caregiverPhone = "",
   email = "",
   fullName,
   ownerUid,
@@ -71,6 +103,8 @@ function buildProfilePayload({
   const normalizedSupportLevel = normalizeSupportLevel(supportLevel);
   const personalDetails = {
     ...DEFAULT_PERSONAL_DETAILS,
+    caregiverName,
+    caregiverPhone,
     email,
     fullName: fullName.trim(),
     dateOfBirth,
@@ -80,9 +114,11 @@ function buildProfilePayload({
   return {
     caregiverUid,
     createdAt,
+    currentFeeling: null,
     dailyTasks: cloneDefaultTasks(),
     dateOfBirth,
     fullName: personalDetails.fullName,
+    latestSosAlert: null,
     ownerUid,
     personalDetails,
     profileType,
@@ -118,8 +154,10 @@ function normalizeProfileRecord(profileId, record) {
   return {
     id: profileId,
     ...record,
+    currentFeeling: normalizeFeelingRecord(record?.currentFeeling),
     dateOfBirth,
     fullName,
+    latestSosAlert: normalizeSosRecord(record?.latestSosAlert),
     personalDetails,
     qualifiesForCaregiverView: qualifiesForCaregiverView(personalDetails),
     supportLevel,
@@ -273,6 +311,7 @@ export function AppProvider({ children }) {
           ...task,
           ...validTask,
           completed: Boolean(task.completed),
+          completedAt: typeof task.completedAt === "string" ? task.completedAt : "",
           id: task.id ?? createTaskId(),
         };
       })
@@ -336,6 +375,7 @@ export function AppProvider({ children }) {
     dependentDateOfBirth = "",
     dependentFullName = "",
     dependentSupportLevel = "moderate",
+    caregiverPhone = "",
     email,
     fullName,
     password,
@@ -399,6 +439,8 @@ export function AppProvider({ children }) {
           profileRef,
           buildProfilePayload({
             caregiverUid: createdUser.uid,
+            caregiverName: trimmedFullName,
+            caregiverPhone,
             dateOfBirth: dependentDateOfBirth,
             fullName: dependentFullName,
             ownerUid: createdUser.uid,
@@ -453,6 +495,10 @@ export function AppProvider({ children }) {
       return;
     }
 
+    if (currentUser) {
+      await unregisterStoredCaregiverPush(currentUser).catch(() => null);
+    }
+
     await signOut(firebaseAuth);
   }
 
@@ -472,6 +518,7 @@ export function AppProvider({ children }) {
   }
 
   async function createDependentProfile({
+    caregiverPhone = "",
     dateOfBirth = "",
     fullName,
     supportLevel = "moderate",
@@ -492,6 +539,8 @@ export function AppProvider({ children }) {
       profileRef,
       buildProfilePayload({
         caregiverUid: currentUser.uid,
+        caregiverName: account?.fullName ?? "",
+        caregiverPhone,
         dateOfBirth,
         fullName: trimmedFullName,
         ownerUid: currentUser.uid,
@@ -510,6 +559,9 @@ export function AppProvider({ children }) {
       const validTask = validateTaskInput({
         category: input.category || ROUTINE_SECTIONS[4].id,
         name: input.name,
+        recurrenceValue: input.recurrenceValue || "",
+        scheduleDate: input.scheduleDate || "",
+        scheduleType: input.scheduleType || "daily",
         time: input.time || "18:00",
       });
 
@@ -518,6 +570,7 @@ export function AppProvider({ children }) {
         {
           ...validTask,
           completed: false,
+          completedAt: "",
           id: createTaskId(),
         },
       ]);
@@ -552,10 +605,15 @@ export function AppProvider({ children }) {
     if (isCloudMode) {
       const nextTasks = tasks.map((task) =>
         task.id === taskId
-          ? {
-              ...task,
-              completed: !task.completed,
-            }
+          ? (() => {
+              const nextCompleted = !task.completed;
+
+              return {
+                ...task,
+                completed: nextCompleted,
+                completedAt: nextCompleted ? createTimestamp() : "",
+              };
+            })()
           : task
       );
 
@@ -588,9 +646,81 @@ export function AppProvider({ children }) {
     return savedDetails;
   }
 
+  async function updateFeelingStatus(feeling) {
+    if (!isCloudMode || !firebaseDb || !activeProfile) {
+      throw new Error("You need an active synced profile to save feelings.");
+    }
+
+    const nextFeeling = {
+      id: feeling.id,
+      isUrgent: ["overwhelmed", "frustrated", "distressed"].includes(feeling.id),
+      label: feeling.label,
+      message: feeling.message,
+      updatedAt: createTimestamp(),
+    };
+
+    await setDoc(
+      doc(firebaseDb, "profiles", activeProfile.id),
+      {
+        currentFeeling: nextFeeling,
+        updatedAt: nextFeeling.updatedAt,
+      },
+      { merge: true }
+    );
+
+    if (nextFeeling.isUrgent && currentUser && activeProfile.caregiverUid) {
+      // Push delivery is best-effort. The routine state is still saved even if no caregiver
+      // device is registered or the network request fails.
+      await sendCaregiverAlert(currentUser, {
+        alertType: "feeling",
+        feelingId: nextFeeling.id,
+        feelingLabel: nextFeeling.label,
+        profileId: activeProfile.id,
+      }).catch(() => null);
+    }
+
+    return nextFeeling;
+  }
+
+  async function triggerSosAlert({
+    mode = "manual",
+    note = "User requested urgent caregiver support.",
+  } = {}) {
+    if (!isCloudMode || !firebaseDb || !activeProfile) {
+      throw new Error("You need an active synced profile to trigger SOS.");
+    }
+
+    const nextAlert = {
+      mode,
+      note,
+      updatedAt: createTimestamp(),
+    };
+
+    await setDoc(
+      doc(firebaseDb, "profiles", activeProfile.id),
+      {
+        latestSosAlert: nextAlert,
+        updatedAt: nextAlert.updatedAt,
+      },
+      { merge: true }
+    );
+
+    if (currentUser && activeProfile.caregiverUid) {
+      await sendCaregiverAlert(currentUser, {
+        alertType: "sos",
+        note: nextAlert.note,
+        profileId: activeProfile.id,
+      }).catch(() => null);
+    }
+
+    return nextAlert;
+  }
+
   const value = {
     account,
     activeProfile,
+    TaskValidationError,
+    addTask,
     authReady,
     clearCompletedTasks,
     createDependentProfile,
@@ -611,8 +741,8 @@ export function AppProvider({ children }) {
     switchActiveProfile,
     tasks,
     toggleTaskCompleted,
-    addTask,
-    TaskValidationError,
+    triggerSosAlert,
+    updateFeelingStatus,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

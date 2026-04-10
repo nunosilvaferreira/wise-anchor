@@ -1,3 +1,4 @@
+import AuthGuard from "../../components/auth-guard";
 import SettingsPanel from "../../components/settings-panel";
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function SettingsPage() {
-  return <SettingsPanel />;
+  return (
+    <AuthGuard>
+      <SettingsPanel />
+    </AuthGuard>
+  );
 }

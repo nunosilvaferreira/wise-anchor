@@ -21,6 +21,7 @@ export default function RegisterForm() {
   const [dependentFullName, setDependentFullName] = useState("");
   const [dependentDateOfBirth, setDependentDateOfBirth] = useState("");
   const [dependentSupportLevel, setDependentSupportLevel] = useState("moderate");
+  const [caregiverPhone, setCaregiverPhone] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -40,6 +41,7 @@ export default function RegisterForm() {
         dependentDateOfBirth,
         dependentFullName,
         dependentSupportLevel,
+        caregiverPhone,
         email,
         fullName,
         password,
@@ -187,6 +189,16 @@ export default function RegisterForm() {
                   />
                 </label>
               </div>
+
+              <label className={styles.field}>
+                <span>Caregiver phone</span>
+                <input
+                  onChange={(event) => setCaregiverPhone(event.target.value)}
+                  placeholder="Example: +351 912 345 678"
+                  type="tel"
+                  value={caregiverPhone}
+                />
+              </label>
 
               <label className={styles.field}>
                 <span>Support level</span>

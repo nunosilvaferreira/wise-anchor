@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isLinkedProfile(data) {
+      return isSignedIn() && (
+        data.ownerUid == request.auth.uid ||
+        data.caregiverUid == request.auth.uid
+      );
+    }
+
+    // Keep the account role and owner identity stable after registration.
+    function keepsUserIdentity() {
+      return request.resource.data.role == resource.data.role &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    // Prevent a client from reassigning a profile to another user or caregiver.
+    function keepsProfileIdentity() {
+      return request.resource.data.ownerUid == resource.data.ownerUid &&
+        request.resource.data.caregiverUid == resource.data.caregiverUid &&
+        request.resource.data.profileType == resource.data.profileType &&
+        request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    match /users/{userId} {
+      allow read: if isSelf(userId);
+
+      allow create: if isSelf(userId) &&
+        request.resource.data.role in ["caregiver", "independent"] &&
+        request.resource.data.activeProfileId is string &&
+        request.resource.data.email is string &&
+        request.resource.data.fullName is string;
+
+      allow update: if isSelf(userId) &&
+        keepsUserIdentity() &&
+        request.resource.data.activeProfileId is string &&
+        request.resource.data.fullName is string;
+
+      allow delete: if false;
+
+      match /pushTokens/{tokenId} {
+        // Device tokens are written by the server-side Admin SDK only.
+        allow read, write: if false;
+      }
+    }
+
+    match /profiles/{profileId} {
+      allow read: if isLinkedProfile(resource.data);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.fullName is string &&
+        request.resource.data.profileType in ["self", "dependent"] &&
+        (
+          request.resource.data.profileType == "self" ||
+          request.resource.data.caregiverUid == request.auth.uid
+        );
+
+      allow update: if isLinkedProfile(resource.data) &&
+        keepsProfileIdentity();
+
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
