@@ -25,7 +25,7 @@ export function pushConfigErrorResponse() {
   return jsonResponse(
     {
       error:
-        "Firebase Admin is not configured. Add FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, and FIREBASE_ADMIN_PRIVATE_KEY.",
+        "Firebase Admin is not configured. Add NEXT_PUBLIC_FIREBASE_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, and FIREBASE_ADMIN_PRIVATE_KEY.",
     },
     503
   );

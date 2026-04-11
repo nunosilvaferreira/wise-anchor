@@ -13,9 +13,7 @@ function readRuntimeEnv(parts) {
 }
 
 function getAdminConfig() {
-  const projectId =
-    readRuntimeEnv(["FIREBASE", "ADMIN", "PROJECT", "ID"]) ||
-    readRuntimeEnv(["NEXT", "PUBLIC", "FIREBASE", "PROJECT", "ID"]);
+  const projectId = readRuntimeEnv(["NEXT", "PUBLIC", "FIREBASE", "PROJECT", "ID"]);
   const clientEmail = readRuntimeEnv(["FIREBASE", "ADMIN", "CLIENT", "EMAIL"]);
   const privateKey = readRuntimeEnv(["FIREBASE", "ADMIN", "PRIVATE", "KEY"]).replace(
     /\\n/g,
@@ -38,7 +36,7 @@ export function isFirebaseAdminConfigured() {
 function getFirebaseAdminApp() {
   if (!isFirebaseAdminConfigured()) {
     throw new Error(
-      "Firebase Admin is not configured. Add FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, and FIREBASE_ADMIN_PRIVATE_KEY."
+      "Firebase Admin is not configured. Add NEXT_PUBLIC_FIREBASE_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, and FIREBASE_ADMIN_PRIVATE_KEY."
     );
   }
 
