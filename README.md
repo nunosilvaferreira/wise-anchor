@@ -12,7 +12,7 @@ A parent or caregiver can register, create dependent profiles, and manage routin
 
 This project fulfills the CSE 310 Module #3 Web Apps requirements by using Next.js and React to render multiple interactive pages, respond to user input, and dynamically display stored routine data. It also goes beyond the minimum requirement by including account-based sync, caregiver workflows, and more than two dynamic pages.
 
-[Software Demo Video](http://youtube.link.goes.here)
+[Software Demo Video](https://youtu.be/Xz1Fqv-eUbo)
 
 # Authentication And Sync
 
