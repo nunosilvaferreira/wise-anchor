@@ -30,7 +30,11 @@ export default function SiteHeader() {
   const links = !isAuthenticated
     ? []
     : role === "caregiver"
-      ? [...BASE_LINKS, { href: "/caregiver", label: "Caregiver" }]
+      ? [
+          ...BASE_LINKS,
+          { href: "/caregiver", label: "Caregiver" },
+          { href: "/caregiver/history", label: "History" },
+        ]
       : BASE_LINKS;
   const accountLabel =
     activeProfile?.fullName || account?.fullName || "Synced account";

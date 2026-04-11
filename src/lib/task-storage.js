@@ -12,6 +12,12 @@ export const TASK_SCHEDULE_OPTIONS = [
   { value: "monthly", label: "Monthly" },
 ];
 
+export const HISTORY_RETENTION_OPTIONS = [
+  { value: "forever", label: "Keep forever" },
+  { value: "month", label: "Keep one month" },
+  { value: "week", label: "Keep one week" },
+];
+
 export const WEEKDAY_OPTIONS = [
   { value: "1", label: "Monday" },
   { value: "2", label: "Tuesday" },
@@ -119,38 +125,8 @@ function getSectionIndex(category) {
   return index === -1 ? 0 : index;
 }
 
-export function sortTasks(tasks) {
-  // Keep tasks ordered by routine section, then time, then name.
-  return [...tasks].sort((left, right) => {
-    const sectionDifference = getSectionIndex(left.category) - getSectionIndex(right.category);
-
-    if (sectionDifference !== 0) {
-      return sectionDifference;
-    }
-
-    const timeDifference = left.time.localeCompare(right.time);
-
-    if (timeDifference !== 0) {
-      return timeDifference;
-    }
-
-    return left.name.localeCompare(right.name);
-  });
-}
-
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
-}
-
-export function cloneDefaultTasks() {
-  return DEFAULT_DAILY_TASKS.map((task) => ({ ...task }));
-}
-
-export function createDefaultAppData() {
-  return {
-    personalDetails: { ...DEFAULT_PERSONAL_DETAILS },
-    dailyTasks: cloneDefaultTasks(),
-  };
 }
 
 function isValidCategory(category) {
@@ -185,6 +161,232 @@ function normalizeScheduleDate(value) {
   return typeof value === "string" && DATE_PATTERN.test(value) ? value : "";
 }
 
+function normalizeHistoryRetention(value) {
+  return HISTORY_RETENTION_OPTIONS.some((option) => option.value === value)
+    ? value
+    : "forever";
+}
+
+function parseDateKey(value) {
+  if (!DATE_PATTERN.test(value)) {
+    return null;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function addDays(date, amount) {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + amount);
+  return nextDate;
+}
+
+function getRetentionDays(retention) {
+  if (retention === "week") {
+    return 7;
+  }
+
+  if (retention === "month") {
+    return 30;
+  }
+
+  return null;
+}
+
+function normalizeTask(task, index) {
+  // Repair incomplete stored tasks while preserving existing user data.
+  const fallback = DEFAULT_DAILY_TASKS[index] ?? {
+    id: `task-${index + 1}`,
+    category: ROUTINE_SECTIONS[0].id,
+    time: "09:00",
+    name: `Routine task ${index + 1}`,
+    completed: false,
+  };
+
+  return {
+    id: task?.id ?? fallback.id,
+    category:
+      typeof task?.category === "string" && isValidCategory(task.category)
+        ? task.category
+        : fallback.category,
+    time: normalizeTime(task?.time, fallback.time),
+    name: typeof task?.name === "string" && task.name ? task.name : fallback.name,
+    completed: Boolean(task?.completed),
+    completedAt: typeof task?.completedAt === "string" ? task.completedAt : "",
+    recurrenceValue: normalizeScheduleValue(
+      normalizeScheduleType(task?.scheduleType),
+      task?.recurrenceValue
+    ),
+    scheduleDate: normalizeScheduleDate(task?.scheduleDate),
+    scheduleType: normalizeScheduleType(task?.scheduleType),
+  };
+}
+
+function createHistoryTaskSnapshot(task, completed = false) {
+  return {
+    category: task.category,
+    completed,
+    completedAt: completed ? task.completedAt : "",
+    id: task.id,
+    name: task.name,
+    recurrenceValue: task.recurrenceValue,
+    scheduleDate: task.scheduleDate,
+    scheduleType: task.scheduleType,
+    time: task.time,
+  };
+}
+
+function normalizeTaskHistoryEntry(entry, index) {
+  const date = normalizeScheduleDate(entry?.date) || `1970-01-${`${index + 1}`.padStart(2, "0")}`;
+  const tasks = sortTasks(
+    (Array.isArray(entry?.tasks) ? entry.tasks : []).map((task, taskIndex) =>
+      normalizeTask(task, taskIndex)
+    )
+  );
+  const completedTasks = tasks.filter((task) => task.completed).length;
+  const totalTasks = tasks.length;
+
+  return {
+    completionRate: totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0,
+    completedTasks,
+    date,
+    missedTasks: totalTasks - completedTasks,
+    tasks,
+    totalTasks,
+  };
+}
+
+function mergeTaskHistoryEntries(existingEntries, nextEntries) {
+  const mergedEntries = new Map(
+    existingEntries.map((entry) => [entry.date, entry])
+  );
+
+  nextEntries.forEach((entry) => {
+    mergedEntries.set(entry.date, entry);
+  });
+
+  return [...mergedEntries.values()].sort((left, right) => right.date.localeCompare(left.date));
+}
+
+function pruneTaskHistory(history, retention, todayKey) {
+  const retentionDays = getRetentionDays(retention);
+
+  if (!retentionDays) {
+    return history;
+  }
+
+  const todayDate = parseDateKey(todayKey);
+
+  if (!todayDate) {
+    return history;
+  }
+
+  const cutoffDate = addDays(todayDate, -(retentionDays - 1));
+  const cutoffKey = getDateKey(cutoffDate);
+
+  return history.filter((entry) => entry.date >= cutoffKey);
+}
+
+function resetTaskCompletion(tasks) {
+  return tasks.map((task) => ({
+    ...task,
+    completed: false,
+    completedAt: "",
+  }));
+}
+
+function createTaskHistoryEntry(tasks, dateKey, useStoredCompletionState = false) {
+  const date = parseDateKey(dateKey);
+
+  if (!date) {
+    return null;
+  }
+
+  const scheduledTasks = sortTasks(
+    tasks.filter((task) => isTaskScheduledForDate(task, date))
+  );
+
+  if (!scheduledTasks.length) {
+    return null;
+  }
+
+  const entryTasks = scheduledTasks.map((task) =>
+    createHistoryTaskSnapshot(task, useStoredCompletionState ? task.completed : false)
+  );
+  const completedTasks = entryTasks.filter((task) => task.completed).length;
+  const totalTasks = entryTasks.length;
+
+  return {
+    completionRate: totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0,
+    completedTasks,
+    date: dateKey,
+    missedTasks: totalTasks - completedTasks,
+    tasks: entryTasks,
+    totalTasks,
+  };
+}
+
+function getArchiveDateKeys(lastRoutineDate, todayKey) {
+  const startDate = parseDateKey(lastRoutineDate);
+  const todayDate = parseDateKey(todayKey);
+
+  if (!startDate || !todayDate || startDate >= todayDate) {
+    return [];
+  }
+
+  const keys = [];
+  let cursor = startDate;
+
+  while (cursor < todayDate) {
+    keys.push(getDateKey(cursor));
+    cursor = addDays(cursor, 1);
+  }
+
+  return keys;
+}
+
+export function sortTasks(tasks) {
+  // Keep tasks ordered by routine section, then time, then name.
+  return [...tasks].sort((left, right) => {
+    const sectionDifference = getSectionIndex(left.category) - getSectionIndex(right.category);
+
+    if (sectionDifference !== 0) {
+      return sectionDifference;
+    }
+
+    const timeDifference = left.time.localeCompare(right.time);
+
+    if (timeDifference !== 0) {
+      return timeDifference;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
+}
+
+export function cloneDefaultTasks() {
+  return DEFAULT_DAILY_TASKS.map((task) => ({ ...task }));
+}
+
+export function getDateKey(date = new Date()) {
+  return [
+    date.getFullYear(),
+    `${date.getMonth() + 1}`.padStart(2, "0"),
+    `${date.getDate()}`.padStart(2, "0"),
+  ].join("-");
+}
+
+export function createDefaultAppData() {
+  return {
+    dailyTasks: cloneDefaultTasks(),
+    historyRetention: "forever",
+    lastRoutineDate: getDateKey(),
+    personalDetails: { ...DEFAULT_PERSONAL_DETAILS },
+    taskHistory: [],
+  };
+}
+
 export function getTaskScheduleSummary(task) {
   const scheduleType = normalizeScheduleType(task?.scheduleType);
 
@@ -207,13 +409,7 @@ export function isTaskScheduledForDate(task, date = new Date()) {
   const scheduleType = normalizeScheduleType(task?.scheduleType);
 
   if (scheduleType === "specific_date") {
-    const currentDate = [
-      date.getFullYear(),
-      `${date.getMonth() + 1}`.padStart(2, "0"),
-      `${date.getDate()}`.padStart(2, "0"),
-    ].join("-");
-
-    return task?.scheduleDate === currentDate;
+    return task?.scheduleDate === getDateKey(date);
   }
 
   if (scheduleType === "weekly") {
@@ -268,44 +464,15 @@ export function validateTaskInput({
   }
 
   return {
-    name: trimmedName,
-    time,
     category,
+    name: trimmedName,
     recurrenceValue:
       normalizedScheduleType === "weekly" || normalizedScheduleType === "monthly"
         ? recurrenceValue
         : "",
     scheduleDate: normalizedScheduleType === "specific_date" ? scheduleDate : "",
     scheduleType: normalizedScheduleType,
-  };
-}
-
-function normalizeTask(task, index) {
-  // Repair incomplete stored tasks while preserving existing user data.
-  const fallback = DEFAULT_DAILY_TASKS[index] ?? {
-    id: `task-${index + 1}`,
-    category: ROUTINE_SECTIONS[0].id,
-    time: "09:00",
-    name: `Routine task ${index + 1}`,
-    completed: false,
-  };
-
-  return {
-    id: task?.id ?? fallback.id,
-    category:
-      typeof task?.category === "string" && isValidCategory(task.category)
-        ? task.category
-        : fallback.category,
-    time: normalizeTime(task?.time, fallback.time),
-    name: typeof task?.name === "string" && task.name ? task.name : fallback.name,
-    completed: Boolean(task?.completed),
-    completedAt: typeof task?.completedAt === "string" ? task.completedAt : "",
-    recurrenceValue: normalizeScheduleValue(
-      normalizeScheduleType(task?.scheduleType),
-      task?.recurrenceValue
-    ),
-    scheduleDate: normalizeScheduleDate(task?.scheduleDate),
-    scheduleType: normalizeScheduleType(task?.scheduleType),
+    time,
   };
 }
 
@@ -316,14 +483,75 @@ export function normalizeAppData(data) {
     ...defaultData.personalDetails,
     ...(data?.personalDetails ?? {}),
   };
-
   const incomingTasks = Array.isArray(data?.dailyTasks)
     ? data.dailyTasks
     : defaultData.dailyTasks;
+  const taskHistory = Array.isArray(data?.taskHistory)
+    ? data.taskHistory.map(normalizeTaskHistoryEntry)
+    : [];
+  const historyRetention = normalizeHistoryRetention(data?.historyRetention);
+  const lastRoutineDate = normalizeScheduleDate(data?.lastRoutineDate) || getDateKey();
 
   return {
-    personalDetails,
     dailyTasks: sortTasks(incomingTasks.map(normalizeTask)),
+    historyRetention,
+    lastRoutineDate,
+    personalDetails,
+    taskHistory: pruneTaskHistory(taskHistory, historyRetention, getDateKey()),
+  };
+}
+
+export function reconcileAppDataForDate(data, currentDate = new Date()) {
+  const normalizedData = normalizeAppData(data);
+  const todayKey = getDateKey(currentDate);
+  const lastRoutineDate = normalizedData.lastRoutineDate;
+
+  if (!lastRoutineDate || lastRoutineDate === todayKey) {
+    return {
+      data:
+        lastRoutineDate === todayKey
+          ? normalizedData
+          : {
+              ...normalizedData,
+              lastRoutineDate: todayKey,
+            },
+      didRollover: !lastRoutineDate,
+    };
+  }
+
+  if (lastRoutineDate > todayKey) {
+    return {
+      data: {
+        ...normalizedData,
+        lastRoutineDate: todayKey,
+      },
+      didRollover: true,
+    };
+  }
+
+  const archiveEntries = getArchiveDateKeys(lastRoutineDate, todayKey)
+    .map((dateKey, index) =>
+      createTaskHistoryEntry(
+        normalizedData.dailyTasks,
+        dateKey,
+        index === 0
+      )
+    )
+    .filter(Boolean);
+  const mergedTaskHistory = pruneTaskHistory(
+    mergeTaskHistoryEntries(normalizedData.taskHistory, archiveEntries),
+    normalizedData.historyRetention,
+    todayKey
+  );
+
+  return {
+    data: {
+      ...normalizedData,
+      dailyTasks: resetTaskCompletion(normalizedData.dailyTasks),
+      lastRoutineDate: todayKey,
+      taskHistory: mergedTaskHistory,
+    },
+    didRollover: true,
   };
 }
 
@@ -354,7 +582,7 @@ function migrateLegacyTasks() {
     }
 
     return {
-      personalDetails: { ...DEFAULT_PERSONAL_DETAILS },
+      ...createDefaultAppData(),
       dailyTasks: parsedLegacyTasks.map((task, index) =>
         normalizeTask(
           {
@@ -380,12 +608,12 @@ export function loadAppData() {
 
   if (!savedData) {
     const migratedData = migrateLegacyTasks();
-    return saveAppData(migratedData);
+    return saveAppData(reconcileAppDataForDate(migratedData).data);
   }
 
   try {
     const parsedData = JSON.parse(savedData);
-    return saveAppData(parsedData);
+    return saveAppData(reconcileAppDataForDate(parsedData).data);
   } catch {
     return saveAppData(createDefaultAppData());
   }
@@ -410,25 +638,25 @@ export function addTask({
   // Validate before creating a new task so invalid entries never reach storage.
   const appData = loadAppData();
   const validTask = validateTaskInput({
-    name,
-    time: time || "18:00",
     category: category || ROUTINE_SECTIONS[4].id,
+    name,
     recurrenceValue,
     scheduleDate,
     scheduleType,
+    time: time || "18:00",
   });
   const nextTasks = [
     ...appData.dailyTasks,
     {
-      id: `${Date.now()}`,
       category: validTask.category,
-      time: validTask.time,
-      name: validTask.name,
       completed: false,
       completedAt: "",
+      id: `${Date.now()}`,
+      name: validTask.name,
       recurrenceValue: validTask.recurrenceValue,
       scheduleDate: validTask.scheduleDate,
       scheduleType: validTask.scheduleType,
+      time: validTask.time,
     },
   ];
 
@@ -442,12 +670,12 @@ export function saveDailyTasks(tasks) {
   // Revalidate edited tasks before committing them to localStorage.
   const sanitizedTasks = tasks.map((task) => {
     const validTask = validateTaskInput({
-      name: task.name,
-      time: task.time,
       category: task.category,
+      name: task.name,
       recurrenceValue: task.recurrenceValue,
       scheduleDate: task.scheduleDate,
       scheduleType: task.scheduleType,
+      time: task.time,
     });
 
     return {
@@ -494,9 +722,18 @@ export function toggleTaskCompleted(taskId) {
 }
 
 export function clearCompletedTasks() {
-  // Remove completed items to keep the visible routine focused on pending work.
+  // Reset completed states without deleting routine definitions from future days.
   const tasks = loadTasks();
-  const nextTasks = tasks.filter((task) => !task.completed);
+  const nextTasks = tasks.map((task) =>
+    task.completed
+      ? {
+          ...task,
+          completed: false,
+          completedAt: "",
+        }
+      : task
+  );
+
   return saveDailyTasks(nextTasks);
 }
 
@@ -511,6 +748,21 @@ export function savePersonalDetails(personalDetails) {
       ...personalDetails,
     },
   }).personalDetails;
+}
+
+export function saveHistoryRetention(historyRetention) {
+  const appData = loadAppData();
+  const normalizedRetention = normalizeHistoryRetention(historyRetention);
+
+  return saveAppData({
+    ...appData,
+    historyRetention: normalizedRetention,
+    taskHistory: pruneTaskHistory(
+      appData.taskHistory,
+      normalizedRetention,
+      getDateKey()
+    ),
+  }).historyRetention;
 }
 
 export class TaskValidationError extends Error {

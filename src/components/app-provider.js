@@ -4,6 +4,8 @@ import {
   createContext,
   useContext,
   useEffect,
+  useEffectEvent,
+  useRef,
   useState,
 } from "react";
 import {
@@ -27,11 +29,14 @@ import {
   cloneDefaultTasks,
   createDefaultAppData,
   DEFAULT_PERSONAL_DETAILS,
+  getDateKey,
   loadAppData,
   normalizeAppData,
+  reconcileAppDataForDate,
   resetDailyTasks as resetLocalDailyTasks,
   ROUTINE_SECTIONS,
   saveDailyTasks as saveLocalDailyTasks,
+  saveHistoryRetention as saveLocalHistoryRetention,
   savePersonalDetails as saveLocalPersonalDetails,
   sortTasks,
   TaskValidationError,
@@ -118,21 +123,28 @@ function buildProfilePayload({
     dailyTasks: cloneDefaultTasks(),
     dateOfBirth,
     fullName: personalDetails.fullName,
+    historyRetention: "forever",
+    lastRoutineDate: getDateKey(),
     latestSosAlert: null,
     ownerUid,
     personalDetails,
     profileType,
     qualifiesForCaregiverView: qualifiesForCaregiverView(personalDetails),
     supportLevel: normalizedSupportLevel,
+    taskHistory: [],
     updatedAt: createdAt,
   };
 }
 
 function normalizeProfileRecord(profileId, record) {
-  const normalizedData = normalizeAppData({
+  const reconciledData = reconcileAppDataForDate({
     dailyTasks: record?.dailyTasks,
+    historyRetention: record?.historyRetention,
+    lastRoutineDate: record?.lastRoutineDate,
     personalDetails: record?.personalDetails,
+    taskHistory: record?.taskHistory,
   });
+  const normalizedData = normalizeAppData(reconciledData.data);
   const supportLevel = normalizeSupportLevel(
     record?.supportLevel ?? normalizedData.personalDetails.supportLevel
   );
@@ -157,11 +169,15 @@ function normalizeProfileRecord(profileId, record) {
     currentFeeling: normalizeFeelingRecord(record?.currentFeeling),
     dateOfBirth,
     fullName,
+    historyRetention: normalizedData.historyRetention,
+    lastRoutineDate: normalizedData.lastRoutineDate,
     latestSosAlert: normalizeSosRecord(record?.latestSosAlert),
     personalDetails,
     qualifiesForCaregiverView: qualifiesForCaregiverView(personalDetails),
+    requiresDailyRollover: reconciledData.didRollover,
     supportLevel,
     dailyTasks: normalizedData.dailyTasks,
+    taskHistory: normalizedData.taskHistory,
   };
 }
 
@@ -173,6 +189,8 @@ export function AppProvider({ children }) {
   const [account, setAccount] = useState(null);
   const [linkedProfiles, setLinkedProfiles] = useState([]);
   const [activeProfile, setActiveProfile] = useState(null);
+  const [currentDayKey, setCurrentDayKey] = useState(() => getDateKey());
+  const syncingProfilesRef = useRef(new Set());
 
   useEffect(() => {
     // Refresh local fallback storage after hydration so guest mode matches the device state.
@@ -183,6 +201,29 @@ export function AppProvider({ children }) {
 
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentDayKey((currentValue) => {
+        const nextValue = getDateKey();
+        return currentValue === nextValue ? currentValue : nextValue;
+      });
+    }, 60_000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated || isFirebaseConfigured) {
+      return undefined;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      setLocalData(loadAppData());
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [currentDayKey, hasHydrated]);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !firebaseAuth) {
@@ -289,10 +330,90 @@ export function AppProvider({ children }) {
     : useLocalFallback
       ? localData.personalDetails
       : defaultData.personalDetails;
+  const taskHistory = isCloudMode
+    ? activeProfile.taskHistory
+    : useLocalFallback
+      ? localData.taskHistory
+      : defaultData.taskHistory;
+  const historyRetention = isCloudMode
+    ? activeProfile.historyRetention
+    : useLocalFallback
+      ? localData.historyRetention
+      : defaultData.historyRetention;
 
   async function syncLocalData() {
     setLocalData(loadAppData());
   }
+
+  async function persistCloudProfileState(profileId, payload) {
+    if (!firebaseDb) {
+      throw new Error("Firebase sync is not available.");
+    }
+
+    await setDoc(
+      doc(firebaseDb, "profiles", profileId),
+      {
+        ...payload,
+        updatedAt: createTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
+  const reconcileCloudProfile = useEffectEvent(async (profile) => {
+    if (!firebaseDb || !profile?.id) {
+      return;
+    }
+
+    if (!profile.requiresDailyRollover || syncingProfilesRef.current.has(profile.id)) {
+      return;
+    }
+
+    syncingProfilesRef.current.add(profile.id);
+
+    try {
+      const reconciledData = reconcileAppDataForDate({
+        dailyTasks: profile.dailyTasks,
+        historyRetention: profile.historyRetention,
+        lastRoutineDate: profile.lastRoutineDate,
+        personalDetails: profile.personalDetails,
+        taskHistory: profile.taskHistory,
+      });
+
+      if (!reconciledData.didRollover) {
+        return;
+      }
+
+      await persistCloudProfileState(profile.id, {
+        dailyTasks: reconciledData.data.dailyTasks,
+        historyRetention: reconciledData.data.historyRetention,
+        lastRoutineDate: reconciledData.data.lastRoutineDate,
+        taskHistory: reconciledData.data.taskHistory,
+      });
+    } finally {
+      syncingProfilesRef.current.delete(profile.id);
+    }
+  });
+
+  useEffect(() => {
+    if (!isCloudMode || !activeProfile?.requiresDailyRollover) {
+      return;
+    }
+
+    reconcileCloudProfile(activeProfile).catch(() => null);
+  }, [activeProfile, currentDayKey, isCloudMode]);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || account?.role !== "caregiver" || !linkedProfiles.length) {
+      return;
+    }
+
+    linkedProfiles
+      .filter((profile) => profile.requiresDailyRollover)
+      .forEach((profile) => {
+        reconcileCloudProfile(profile).catch(() => null);
+      });
+  }, [account?.role, currentDayKey, linkedProfiles]);
 
   async function replaceActiveCloudTasks(nextTasks) {
     if (!firebaseDb || !activeProfile) {
@@ -304,6 +425,9 @@ export function AppProvider({ children }) {
         const validTask = validateTaskInput({
           category: task.category,
           name: task.name,
+          recurrenceValue: task.recurrenceValue,
+          scheduleDate: task.scheduleDate,
+          scheduleType: task.scheduleType,
           time: task.time,
         });
 
@@ -317,14 +441,10 @@ export function AppProvider({ children }) {
       })
     );
 
-    await setDoc(
-      doc(firebaseDb, "profiles", activeProfile.id),
-      {
-        dailyTasks: sanitizedTasks,
-        updatedAt: createTimestamp(),
-      },
-      { merge: true }
-    );
+    await persistCloudProfileState(activeProfile.id, {
+      dailyTasks: sanitizedTasks,
+      lastRoutineDate: currentDayKey,
+    });
 
     return sanitizedTasks;
   }
@@ -627,7 +747,15 @@ export function AppProvider({ children }) {
 
   async function clearCompletedTasks() {
     if (isCloudMode) {
-      const nextTasks = tasks.filter((task) => !task.completed);
+      const nextTasks = tasks.map((task) =>
+        task.completed
+          ? {
+              ...task,
+              completed: false,
+              completedAt: "",
+            }
+          : task
+      );
       return replaceActiveCloudTasks(nextTasks);
     }
 
@@ -644,6 +772,30 @@ export function AppProvider({ children }) {
     const savedDetails = saveLocalPersonalDetails(nextDetails);
     await syncLocalData();
     return savedDetails;
+  }
+
+  async function saveHistoryRetention(nextRetention) {
+    if (isCloudMode && activeProfile) {
+      const reconciledData = reconcileAppDataForDate({
+        dailyTasks: activeProfile.dailyTasks,
+        historyRetention: nextRetention,
+        lastRoutineDate: activeProfile.lastRoutineDate,
+        personalDetails: activeProfile.personalDetails,
+        taskHistory: activeProfile.taskHistory,
+      });
+
+      await persistCloudProfileState(activeProfile.id, {
+        historyRetention: reconciledData.data.historyRetention,
+        lastRoutineDate: reconciledData.data.lastRoutineDate,
+        taskHistory: reconciledData.data.taskHistory,
+      });
+
+      return reconciledData.data.historyRetention;
+    }
+
+    const savedRetention = saveLocalHistoryRetention(nextRetention);
+    await syncLocalData();
+    return savedRetention;
   }
 
   async function updateFeelingStatus(feeling) {
@@ -732,13 +884,16 @@ export function AppProvider({ children }) {
     linkedProfiles,
     login,
     logout,
+    historyRetention,
     personalDetails,
     registerAccount,
     resetDailyTasks,
     role: account?.role ?? "guest",
     saveDailyTasks,
+    saveHistoryRetention,
     savePersonalDetails,
     switchActiveProfile,
+    taskHistory,
     tasks,
     toggleTaskCompleted,
     triggerSosAlert,
