@@ -27,16 +27,35 @@ function getAdminConfig() {
   };
 }
 
-export function isFirebaseAdminConfigured() {
+export function getMissingFirebaseAdminConfigKeys() {
   const { clientEmail, privateKey, projectId } = getAdminConfig();
+  const missingKeys = [];
 
-  return Boolean(projectId && clientEmail && privateKey);
+  if (!projectId) {
+    missingKeys.push("NEXT_PUBLIC_FIREBASE_PROJECT_ID");
+  }
+
+  if (!clientEmail) {
+    missingKeys.push("FIREBASE_ADMIN_CLIENT_EMAIL");
+  }
+
+  if (!privateKey) {
+    missingKeys.push("FIREBASE_ADMIN_PRIVATE_KEY");
+  }
+
+  return missingKeys;
+}
+
+export function isFirebaseAdminConfigured() {
+  return getMissingFirebaseAdminConfigKeys().length === 0;
 }
 
 function getFirebaseAdminApp() {
   if (!isFirebaseAdminConfigured()) {
+    const missingKeys = getMissingFirebaseAdminConfigKeys().join(", ");
+
     throw new Error(
-      "Firebase Admin is not configured. Add NEXT_PUBLIC_FIREBASE_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, and FIREBASE_ADMIN_PRIVATE_KEY."
+      `Firebase Admin is not configured. Missing: ${missingKeys}.`
     );
   }
 

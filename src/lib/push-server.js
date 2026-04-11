@@ -4,6 +4,7 @@ import {
   getFirebaseAdminAuth,
   getFirebaseAdminDb,
   getFirebaseAdminMessaging,
+  getMissingFirebaseAdminConfigKeys,
   isFirebaseAdminConfigured,
 } from "./firebase-admin";
 
@@ -22,10 +23,11 @@ function jsonResponse(payload, status = 200) {
 }
 
 export function pushConfigErrorResponse() {
+  const missingKeys = getMissingFirebaseAdminConfigKeys().join(", ");
+
   return jsonResponse(
     {
-      error:
-        "Firebase Admin is not configured. Add NEXT_PUBLIC_FIREBASE_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, and FIREBASE_ADMIN_PRIVATE_KEY.",
+      error: `Firebase Admin is not configured. Missing: ${missingKeys}.`,
     },
     503
   );
